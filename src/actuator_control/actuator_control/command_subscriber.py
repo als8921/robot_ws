@@ -6,7 +6,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool, Int32
 
-import PythonLibMightyZap_PC.PythonLibMightyZap_PC as MightyZap
+import PythonLibMightyZap_PC as MightyZap
 
 port = '/dev/ttyUSB0'
 baudrate = 57600

@@ -194,7 +194,7 @@ def WritePacket(buff, size):
     for i in range(0,size):	
         MZap.write([buff[i]])				
 		
-def reg_write(ID,  addr, datz,size):
+def reg_write(ID,  addr, data, size):
     global MIGHTYZAP_WRITE_DATA
     i = 0
     setID(ID)
