@@ -15,57 +15,27 @@ Actuator_ID = 3
 class CommandSubscriber(Node):
     def __init__(self):
         super().__init__('rcs_command')
-        self.open()
-        self.rail_refpos_subscriber = self.create_subscription(Int32, 'rail_refpos', self.rail_refpos_cb, 10)
-        self.rail_refvel_subscriber = self.create_subscription(Int32, 'rail_refvel', self.rail_refvel_cb, 10)
-
-        self.rail_emg_subscriber = self.create_subscription(Bool, 'rcs/rail_emg', self.rail_emg_cb, 10)
-        self.rail_calib_subscriber = self.create_subscription(Bool, 'rcs/rail_calib', self.rail_calib_cb, 10)
         self.cam_cover_subscriber = self.create_subscription(Bool, 'rcs/cam_cover', self.cam_cover_cb, 10)
 
-    def open(self):
+    def cam_cover_cb(self, msg):
         """
-            시리얼 포트 연결
+            스트로크 위치를 open_length 위치로 이동
         """
+        # 이동하고자 하는 위치 (0~4095)
+        open_length = 1000
+
+        length_d = open_length * int(msg.data)
+        print(length_d)
         MightyZap.OpenMightyZap(port,baudrate)
-
-
-    def rail_refpos_cb(self, msg):
-        """
-            스트로크 위치를 원하는 위치로 이동
-            Args:
-                msg : 이동하고자 하는 위치 (0~4095)
-        """
-        self.get_logger().info(f"position command : {msg.data}")
-        MightyZap.GoalPosition(Actuator_ID, msg.data)
+        self.get_logger().info(f"position command : {length_d}")
+        MightyZap.GoalPosition(Actuator_ID, length_d)
 
         # 지정한 위치와 현재 위치의 차 값이 Boundary 미만일 경우 서보 액츄에이터의 Force를 강제적으로 비활성
-        while(abs(MightyZap.PresentPosition(Actuator_ID) - msg.data) > 10):
+        while(abs(MightyZap.PresentPosition(Actuator_ID) - length_d) > 10):
             print(MightyZap.PresentPosition(Actuator_ID))
 
+        # 서보 액츄에이터의 Force를 강제적으로 비활성
         MightyZap.ForceEnable(Actuator_ID, 0)
-
-    def rail_refvel_cb(self, msg):
-        pass
-
-    def rail_emg_cb(self, msg):
-        """
-            서보 액츄에이터의 Force를 강제적으로 활성/비활성
-            Args:
-                msg : True(활성) / False(비활성)
-        """
-        MightyZap.ForceEnable(Actuator_ID, int(msg.data))
-
-
-    def rail_calib_cb(self, msg):
-        pass
-
-    def cam_cover_cb(self, msg):
-        pass
-    
-
-
-
 
 def main(args=None):
     rclpy.init(args=args)
