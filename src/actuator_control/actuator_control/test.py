@@ -1,9 +1,9 @@
-import PythonLibMightyZap_PC.PythonLibMightyZap_PC as MightyZap
+import PythonLibMightyZap_PC as MightyZap
 import time
 
 Actuator_ID = 3
 
-pos = 0
+pos = 1000
 MightyZap.OpenMightyZap('/dev/ttyUSB0',57600)
 MightyZap.SetErrorIndicatorEnable(Actuator_ID, 0)
 print(MightyZap.GetErrorIndicatorEnable(Actuator_ID))

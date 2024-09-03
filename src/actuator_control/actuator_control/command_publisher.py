@@ -1,16 +1,18 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool
-
 class CommandPublisher(Node):
     def __init__(self):
         super().__init__('rcs_cam_cover_publisher')
         self.cam_cover_publisher = self.create_publisher(Bool, 'rcs/cam_cover', 10)
-        self.timer = self.create_timer(1.0, self.timer_callback)  # 1초마다 콜백 호출
+        self.timer = self.create_timer(3.0, self.timer_callback)  # 1초마다 콜백 호출
+
+        self.i = True
 
     def timer_callback(self):
         cam_cover_msg = Bool()
-        cam_cover_msg.data = False  # 카메라 커버 열기
+        cam_cover_msg.data = self.i  # 카메라 커버 열기
+        self.i = not self.i
         self.cam_cover_publisher.publish(cam_cover_msg)
         self.get_logger().info(f'Published cam_cover: {cam_cover_msg.data}')
 
