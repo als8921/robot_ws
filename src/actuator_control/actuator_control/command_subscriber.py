@@ -20,7 +20,7 @@ error_boundary = 10
 
 class CommandSubscriber(Node):
     def __init__(self):
-        super().__init__('rcs_command')
+        super().__init__('cam_cover_command')
         self.cam_cover_subscriber = self.create_subscription(Bool, 'rcs/cam_cover', self.cam_cover_cb, 10)
 
         MightyZap.OpenMightyZap(serial_port,baud_rate)
