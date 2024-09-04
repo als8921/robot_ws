@@ -13,7 +13,7 @@ baud_rate = 57600
 actuator_id = 3
 
 # 이동하고자 하는 위치 (0 ~ 3500)
-open_position = 3000
+open_position = 100
 
 # 오차 허용 범위
 error_boundary = 10
@@ -47,11 +47,16 @@ class CommandSubscriber(Node):
         MightyZap.ForceEnable(actuator_id, 0)
 
 def main(args=None):
-    rclpy.init(args=args)
-    commandSubscriber = CommandSubscriber()
-    rclpy.spin(commandSubscriber)
-    commandSubscriber.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.init(args=args)
+        commandSubscriber = CommandSubscriber()
+        rclpy.spin(commandSubscriber)
+
+    except:
+        MightyZap.ForceEnable(actuator_id, 0)
+        MightyZap.CloseMightyZap()
+        commandSubscriber.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
