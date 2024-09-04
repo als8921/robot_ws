@@ -12,6 +12,12 @@ serial_port = '/dev/ttyUSB0'
 baud_rate = 57600
 actuator_id = 3
 
+# 이동하고자 하는 위치 (0 ~ 3500)
+open_position = 3000
+
+# 오차 허용 범위
+error_boundary = 10
+
 class CommandSubscriber(Node):
     def __init__(self):
         super().__init__('rcs_command')
@@ -24,20 +30,17 @@ class CommandSubscriber(Node):
         """
             스트로크 위치를 open_position 위치로 이동
             
-            target_position = open_position     True
-            target_position = 0                 False
+            target_position = open_position     (True)
+            target_position = 0                 (False)
         """
-        # 이동하고자 하는 위치 (0~4095)
-        open_position = 500
 
         target_position = open_position * int(msg.data)
 
         self.get_logger().info(f"position command : {target_position}")
         MightyZap.GoalPosition(actuator_id, target_position)
 
-        # 지정한 위치와 현재 위치의 차이가 특정 boundary 미만이 될 때 까지 대기
-        while(abs(MightyZap.PresentPosition(actuator_id) - target_position) > 10):
-            print(MightyZap.PresentPosition(actuator_id))
+        # 지정한 위치와 현재 위치의 차이가 error_boundary 미만이 될 때 까지 대기
+        while(abs(MightyZap.PresentPosition(actuator_id) - target_position) > error_boundary):
             pass
 
         # 서보 액츄에이터의 Force를 강제적으로 비활성
