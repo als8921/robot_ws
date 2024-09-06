@@ -1,52 +1,88 @@
 from CommonUtils import kbhit
 from Automation.BDaq import *
 from Automation.BDaq.InstantDiCtrl import InstantDiCtrl
-from Automation.BDaq.BDaqApi import AdxEnumToString, BioFailed
+from Automation.BDaq.BDaqApi import BioFailed
 
 deviceDescription = "USB-4716,BID#0"
 
-def AdvInstantDI():
-    ret = ErrorCode.Success
+def ReadEncoder():
+    """
+    엔코더 A, B상 값을 받아와서 0, 1로 반환
+
+    Return:
+        (encoderA, encoderB)    엔코더 데이터
+        False                   에러 발생
+    """
+    ret, data = instantDiCtrl.readAny(0, 1)
+    if BioFailed(ret):
+        return False
+
+    encoderA = data[0] & 1
+    encoderB = (data[0] >> 1) & 1
+
+    return (encoderA, encoderB)
+
+def CountEncoder(encoderA, encoderB):
+    """
+    1상 1체배로 엔코더의 데이터로 CW 방향 1, CCW 방향 -1 반환
+    
+    Args:
+        encoderA: 엔코더 A상 데이터 (0 or 1)
+        encoderB: 엔코더 B상 데이터 (0 or 1)
+
+    Return:
+        1       CW
+        -1      CCW
+        0       None 
+    """
+    if last_encoderA == 0 and encoderA == 1:
+        return -1 if encoderB else 1
+    return 0
+
+def ConvertPulseToAngle(pulse_count):
+    """
+    펄스 수를 각도로 변환하는 함수
+
+    Args:
+        pulse_count: 현재까지의 펄스 수
+
+    Return:
+        encoder_angle: 변환된 각도
+    """
+    encoder_angle = pulse_count * 360 / 15
+    return encoder_angle
+
+def Process():
+    global instantDiCtrl, last_encoderA, last_encoderB
     instantDiCtrl = InstantDiCtrl(deviceDescription)
-    print("Reading ports status is in progress, any key to quit!")
-    count = 0
-    last_encoderA, last_encoderB = 0, 0
+
+    # 초기 상태값을 받아와서 last_encoderA, last_encoderB에 저장
+    encoder_data = ReadEncoder()
+
+    # 에러 발생시 Process 종료
+    if not encoder_data:
+        instantDiCtrl.dispose()
+        return
+    last_encoderA, last_encoderB = encoder_data
+
+    pulse_count = 0
+
     while not kbhit():
-        ret, data = instantDiCtrl.readAny(0, 1)
-        if BioFailed(ret):
+        encoder_data = ReadEncoder()
+
+        # 에러 발생시 Process 종료
+        if not encoder_data:
             break
+        encoderA, encoderB = encoder_data
 
-        encoderA = (data[0] >> 0) & 1
-        encoderB = (data[0] >> 1) & 1
-
-        if(last_encoderA == 0 and encoderA == 1):
-            if(encoderB): count -= 1
-            else: count += 1
-
-        elif(last_encoderA == 1 and encoderA == 0):
-            if(encoderB): count += 1
-            else: count -= 1
-
-        if(last_encoderB == 0 and encoderB == 1):
-            if(encoderA): count += 1
-            else: count -= 1
-
-        elif(last_encoderB == 1 and encoderB == 0):
-            if(encoderA): count -= 1
-            else: count += 1
-
-        print(f"angle : {count*6}")
+        pulse_count += CountEncoder(encoderA, encoderB)
         last_encoderA, last_encoderB = encoderA, encoderB
-            
-    print("\n DI output completed !")
+
+        # 펄스를 각도로 변환
+        encoder_angle = ConvertPulseToAngle(pulse_count)
+        print(f"Angle : {encoder_angle}")
 
     instantDiCtrl.dispose()
 
-    if BioFailed(ret):
-        enumStr = AdxEnumToString("ErrorCode", ret.value, 256)
-        print("Some error occurred. And the last error code is %#x. [%s]" % (ret.value, enumStr))
-    return 0
-
-
 if __name__ == '__main__':
-    AdvInstantDI()
+    Process()
