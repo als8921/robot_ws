@@ -164,13 +164,14 @@ def AdvInstantAO():
 
         print("Outputting data...")
 
-        for i in range(ONE_WAVE_POINT_COUNT):
-            writeData = waveform[channelCount * i:channelCount * i + channelCount]
-            print(writeData)
-            ret = instantAo.writeAny(channelStart, channelCount, None, writeData)
-            if BioFailed(ret) or kbhit():
-                break
-            time.sleep(1)
+        while(1):
+            for i in range(ONE_WAVE_POINT_COUNT):
+                writeData = waveform[channelCount * i:channelCount * i + channelCount]
+                print(writeData)
+                ret = instantAo.writeAny(channelStart, channelCount, None, writeData)
+                if BioFailed(ret) or kbhit():
+                    break
+                # time.sleep(0.01)
     instantAo.dispose()
 
     if BioFailed(ret):
