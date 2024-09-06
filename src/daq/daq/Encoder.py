@@ -56,15 +56,7 @@ def Process():
     global instantDiCtrl, last_encoderA, last_encoderB
     instantDiCtrl = InstantDiCtrl(deviceDescription)
 
-    # 초기 상태값을 받아와서 last_encoderA, last_encoderB에 저장
-    encoder_data = ReadEncoder()
-
-    # 에러 발생시 Process 종료
-    if not encoder_data:
-        instantDiCtrl.dispose()
-        return
-    last_encoderA, last_encoderB = encoder_data
-
+    last_encoderA, last_encoderB = 0, 0
     pulse_count = 0
 
     while not kbhit():
