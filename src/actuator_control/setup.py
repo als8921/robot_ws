@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             'cmdpub = actuator_control.command_publisher:main',
             'cmdsub = actuator_control.command_subscriber:main',
+            'control = actuator_control.MultiActuator:main',
         ],
     },
 )
