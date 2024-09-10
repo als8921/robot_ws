@@ -44,9 +44,8 @@ class CommandSubscriber(Node):
         print("==========================================================")
         print(f"Received : {msg.data}")
         print("==========================================================")
-        target_positions = self.calculate_target_positions(msg.data)    # msg에 따른 target_position 명령 지정
-
         if self.status != msg.data:  # 상태가 변경된 경우
+            target_positions = self.calculate_target_positions(msg.data)    # msg에 따른 target_position 명령 지정
             asyncio.run(self.move_actuators(target_positions))  # 비동기로 액츄에이터 이동완료 될 때 까지 대기
             self.status = msg.data  # 상태 업데이트
 
