@@ -11,7 +11,6 @@ import asyncio
 # 상수 정의
 SERIAL_PORT = '/dev/ttyUSB0'    # 시리얼 포트
 BAUD_RATE = 57600               # 전송 속도
-ACTUATOR_COUNT = 2              # 액츄에이터 개수
 ACTUATOR_IDS = [3, 0]           # 액츄에이터 ID 목록
 OPEN_POSITIONS = [3500, 4000]   # 개방 위치
 ERROR_BOUNDARY = 10             # 위치 오차 허용 범위
