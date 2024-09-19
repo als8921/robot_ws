@@ -18,8 +18,10 @@ def ReadEncoder():
         return False
 
     encoderA = data[0] & 1
-    encoderB = (data[0] >> 1) & 1
-
+    encoderAa = (data[0] >> 1) & 1
+    encoderB = (data[0] >> 2) & 1
+    encoderBb = (data[0] >> 3) & 1
+    print(data[0])
     return (encoderA, encoderB)
 
 def CountEncoder(encoderA, encoderB):
