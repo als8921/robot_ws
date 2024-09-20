@@ -20,6 +20,12 @@ class MotorController:
         self.filtered_velocity = 0  # 필터링된 각속도 초기화
         self.alpha = 0.6 # 필터 계수 (0 < alpha < 1)
 
+        # PID 부분 Parameter
+        self.Kp = 0.1
+        self.Ki = 0
+        self.Kd = 0.02
+        self.previous_error = 0
+
     # 아날로그 값을 받아오는 부분
     def ReadAnalog(self):
         AIChannel = 0
@@ -51,6 +57,24 @@ class MotorController:
         if BioFailed(ret):
             print("Error occurred during writing data.")
 
+    # PID 제어 부분 -> 10To10V AnalogOutput
+    def PIDControl(self, desirePosition, currentPosition, dt):
+        pos_error = desirePosition - currentPosition
+        pos_derivative = (pos_error - self.previous_error) / dt
+        pos_integral = 0
+        output =  self.Kp * pos_error + self.Kd * pos_derivative + self.Ki * pos_integral
+
+        output = max(-10, min(10, output))
+
+        self.previous_error = pos_error
+        return output
+
+
+
+
+
+
+
     # 메인 제어 부분
     def main(self):
         try:
@@ -60,17 +84,28 @@ class MotorController:
                 dt = current_time - previous_time
                 previous_time = current_time
 
-                self.WriteAnalog(2)
                 raw_velocity = self.CalculateVelocity(self.ReadAnalog())
                 
                 # Low Pass Filter
                 self.filtered_velocity = self.alpha * raw_velocity + (1 - self.alpha) * self.filtered_velocity
                 
                 # 각도 적분
-                if(abs(self.filtered_velocity) > 2):
+                MIN_ANGULAR_VELOCITY = 2    # 정지시 노이즈를 해결하기 위해 적분하는 최소 속도 설정
+                if(abs(self.filtered_velocity) > MIN_ANGULAR_VELOCITY):
                     self.angle += self.filtered_velocity * dt  # 각도 업데이트
 
-                print(f"angular velocity (filtered): {self.filtered_velocity:.2f} [deg/s], angle: {self.angle:.2f} [degrees]")
+
+
+                desire_position = 360
+                ErrorBoundary = 5   # 목표 값 도달 범위 설정
+                if(abs(desire_position - self.angle) < ErrorBoundary):
+                    self.WriteAnalog(0)
+                    print("Done")
+                else:
+                    pid_output = self.PIDControl(desire_position, self.angle, dt)
+                    self.WriteAnalog(pid_output)    
+                    print(f"angular velocity (filtered): {self.filtered_velocity:.2f} [deg/s], angle: {self.angle:.2f} [degrees]")
+                
         except Exception as e:
             print(f"Error occurred: {e}")
         finally:
