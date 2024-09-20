@@ -18,7 +18,7 @@ class MotorController:
         self.instantAo.channels[0].valueRange = ValueRange.V_Neg10To10  # Voltage Output Range Setting
         self.angle = 0  # 각도 초기화
         self.filtered_velocity = 0  # 필터링된 각속도 초기화
-        self.alpha = 0.1  # 필터 계수 (0 < alpha < 1)
+        self.alpha = 0.6 # 필터 계수 (0 < alpha < 1)
 
     # 아날로그 값을 받아오는 부분
     def ReadAnalog(self):
@@ -35,7 +35,7 @@ class MotorController:
 
             Gear Ratio = 1 : 25
         """
-        velocity = voltage * 180  # deg/s
+        velocity = -voltage * 180  # deg/s
         return velocity
 
     # 아날로그 값을 보내주는 부분
@@ -47,7 +47,7 @@ class MotorController:
         elif voltage < -10:
             voltage = -10 
 
-        ret = self.instantAo.writeAny(AOChannel, 1, None, [voltage])
+        ret = self.instantAo.writeAny(AOChannel, 1, None, [-voltage])
         if BioFailed(ret):
             print("Error occurred during writing data.")
 
@@ -60,16 +60,17 @@ class MotorController:
                 dt = current_time - previous_time
                 previous_time = current_time
 
-                self.WriteAnalog(4)
+                self.WriteAnalog(2)
                 raw_velocity = self.CalculateVelocity(self.ReadAnalog())
                 
-                # 저역 필터 적용
+                # Low Pass Filter
                 self.filtered_velocity = self.alpha * raw_velocity + (1 - self.alpha) * self.filtered_velocity
                 
                 # 각도 적분
-                self.angle += self.filtered_velocity * dt  # 각도 업데이트
+                if(abs(self.filtered_velocity) > 2):
+                    self.angle += self.filtered_velocity * dt  # 각도 업데이트
 
-                print(f"angular velocity (filtered): {self.filtered_velocity} [deg/s], angle: {self.angle} [degrees]")
+                print(f"angular velocity (filtered): {self.filtered_velocity:.2f} [deg/s], angle: {self.angle:.2f} [degrees]")
         except Exception as e:
             print(f"Error occurred: {e}")
         finally:
