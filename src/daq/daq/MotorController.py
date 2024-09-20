@@ -27,7 +27,13 @@ class Encoder:
         encoderAa = (data[0] >> 1) & 1
         encoderB = (data[0] >> 2) & 1
         encoderBb = (data[0] >> 3) & 1
-        return (encoderA, encoderB)
+
+        A = encoderA - encoderAa
+        if(A < 0): A = 0
+
+        B = encoderB - encoderBb
+        if(B < 0): B = 0
+        return (A, B)
 
     def CountEncoder(encoderA, encoderB):
         """
@@ -50,10 +56,12 @@ class Encoder:
         elif(last_encoderA == 1 and encoderA == 0):
             return 1 if encoderB else -1
 
+        if(last_encoderB == 0 and encoderB == 1):
+            return 1 if encoderA else -1
 
+        elif(last_encoderB == 1 and encoderB == 0):
+            return -1 if encoderA else 1
 
-        if last_encoderA == 0 and encoderA == 1:
-            return -1 if encoderB else 1
         return 0
 
     def ConvertPulseToAngle(pulse_count):
@@ -66,11 +74,8 @@ class Encoder:
         Return:
             encoder_angle: 변환된 각도
         """
-        encoder_angle = pulse_count * 360 / 15
+        encoder_angle = pulse_count * 360 / 1000
         return encoder_angle
-
-
-
 
 class MotorController:
     # 초기 세팅
@@ -81,6 +86,14 @@ class MotorController:
         self.angleDesire = 0
         self.angleCurrent = 0
 
+
+        # PID 부분 Parameter
+        self.Kp = 0.4
+        self.Ki = 0
+        self.Kd = 0
+        self.previous_error = 0
+
+        
     # 엔코더 값을 불러오는 부분
 
 
@@ -98,8 +111,16 @@ class MotorController:
 
 
     # PID 제어 부분 Encoder -> 10To10V AnalogOutput
+    def PIDControl(self, desirePosition, currentPosition, dt):
+        pos_error = desirePosition - currentPosition
+        pos_derivative = (pos_error - self.previous_error) / dt
+        pos_integral = 0
+        output =  self.Kp * pos_error + self.Kd * pos_derivative + self.Ki * pos_integral
 
+        output = max(-10, min(10, output))
 
+        self.previous_error = pos_error
+        return output
 
     # 제어 명령을 받는 부분
 
@@ -108,29 +129,45 @@ class MotorController:
     # 메인 제어 부분
     def main(self):
 
-        global instantDiCtrl, last_encoderA, last_encoderB
+        global last_encoderA, last_encoderB
         last_encoderA, last_encoderB = 0, 0
         pulse_count = 0
-        i = 0
-        while(True):
-            encoder_data = Encoder.ReadEncoder()
-            # 에러 발생시 Process 종료
-            if not encoder_data:
-                break
-            encoderA, encoderB = encoder_data
+        
+        previous_time = time.time()
+        try:
+            while(True):
+                encoder_data = Encoder.ReadEncoder()
+                # 에러 발생시 Process 종료
+                if not encoder_data:
+                    break
+                encoderA, encoderB = encoder_data
 
-            pulse_count += Encoder.CountEncoder(encoderA, encoderB)
-            last_encoderA, last_encoderB = encoderA, encoderB
+                pulse_count += Encoder.CountEncoder(encoderA, encoderB)
+                last_encoderA, last_encoderB = encoderA, encoderB
 
-            # 펄스를 각도로 변환
-            encoder_angle = Encoder.ConvertPulseToAngle(pulse_count)
-            print(f"Angle : {encoder_angle}")
+                # 펄스를 각도로 변환
+                encoder_angle = Encoder.ConvertPulseToAngle(pulse_count)
 
-            angleError = 100
-                
 
-            self.WriteAnalog(abs(0))
-            i+=1
+                """
+                    PID 제어 부분
+                """
+                current_time = time.time()
+                dt = current_time - previous_time
+                previous_time = current_time
+
+                desire_position = -10
+
+                pid_output = self.PIDControl(desire_position, encoder_angle, dt)
+                print(f"   current : {encoder_angle}\n   desire : {desire_position}\n   voltage : {pid_output}")
+                print("=======================================")
+                self.WriteAnalog(pid_output)
+        except:
+            pass
+
+        finally:
+            self.WriteAnalog(0)
+            print("Paused")
 
 if __name__ == "__main__":
     controller = MotorController()
