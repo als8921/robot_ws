@@ -1,7 +1,7 @@
 import time
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Int16, Float64
+from std_msgs.msg import Int16, Float32
 from Automation.BDaq import *
 from Automation.BDaq.InstantAoCtrl import InstantAoCtrl
 from Automation.BDaq.InstantAiCtrl import InstantAiCtrl
@@ -42,8 +42,11 @@ class MotorController(Node):
             10
         )
         # 필터링된 각속도를 발행하기 위한 퍼블리셔 설정
-        self.raw_velocity_publisher = self.create_publisher(Float64, '/raw_velocity', 10)
-        self.filtered_velocity_publisher = self.create_publisher(Float64, '/filtered_velocity', 10)
+        self.raw_velocity_publisher = self.create_publisher(Float32, '/motor/raw_velocity', 10)
+        self.filtered_velocity_publisher = self.create_publisher(Float32, '/motor/filtered_velocity', 10)
+        self.angle_publisher = self.create_publisher(Float32, '/motor/angle', 10)
+        self.desired_angle_publisher = self.create_publisher(Float32, '/motor/desired_angle', 10)
+        
 
 
         self.previous_time = time.time()
@@ -152,10 +155,7 @@ class MotorController(Node):
         print(f"Offset : {self.offset}")
         
 
-        # 필터링된 각속도를 퍼블리시
-        self.raw_velocity_publisher.publish(Float64(data = raw_velocity))
-        self.filtered_velocity_publisher.publish(Float64(data = self.filtered_velocity))
-
+        
         # 각도 업데이트
     
         # if not self.isFinish:
@@ -172,6 +172,12 @@ class MotorController(Node):
         # 출력 전압 제한
         voltage_output = max(-10, min(10, voltage_output))
         self.get_logger().info(f"Moving : {not self.isFinish}, 각도: {self.angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
+        
+        # 퍼블리시
+        self.raw_velocity_publisher.publish(Float32(data = raw_velocity))
+        self.filtered_velocity_publisher.publish(Float32(data = self.filtered_velocity))
+        self.angle_publisher.publish(Float32(data = self.angle))
+        self.desired_angle_publisher.publish(Float32(data = self.desired_angle))
 
         if abs(self.desired_angle - self.angle) < ErrorBoundary:
             self.WriteAnalog(0)
