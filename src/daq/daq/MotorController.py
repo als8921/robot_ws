@@ -52,8 +52,6 @@ class MotorController(Node):
         sample_sum = 0
         for _ in range(sampling_number):
             raw_velocity = self.calculate_velocity(self.read_analog())
-            self.filtered_velocity = self.alpha * raw_velocity + (1 - self.alpha) * self.filtered_velocity
-            
             sample_sum += raw_velocity
             time.sleep(0.001)
         self.offset = sample_sum / sampling_number
