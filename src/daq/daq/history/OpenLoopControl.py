@@ -10,7 +10,7 @@ from Automation.BDaq.BDaqApi import BioFailed
 # 초기 파라미터 설정
 deviceDescription = "USB-4716,BID#0"
 TORQUE_CONSTANT = 147  # 단위: mNm/A
-TIMER_PERIOD = 0.01
+TIMER_PERIOD = 0.001
 class MotorController(Node):
     def __init__(self):
         super().__init__('motor_controller')
@@ -22,14 +22,14 @@ class MotorController(Node):
         self.raw_velocity = []  # 각속도 기록
         self.data = []  # 데이터를 저장할 리스트
         self.filtered_velocity = 0  # 필터링된 각속도 초기화
-        self.alpha = 0.5  # 필터 계수 (0 < alpha < 1)
+        self.alpha = 0.7  # 필터 계수 (0 < alpha < 1)
         self.isFinish = False  # 작업 완료 여부
         self.offset = 0
         
         # PID 제어 변수
         self.Kp = 10.0   #9.0    20
         self.Ki = 0     
-        self.Kd = 1   #1.0    3
+        self.Kd = 2   #1.0    3
         self.previous_error = 0
 
         self.calibration()
@@ -47,25 +47,12 @@ class MotorController(Node):
         self.angle_publisher = self.create_publisher(Float32, '/motor/angle', 10)
         self.desired_angle_publisher = self.create_publisher(Float32, '/motor/desired_angle', 10)
         
-
+        self.msgIn = False
 
         self.previous_time = time.time()
         # 타이머 설정
         self.timer = self.create_timer(TIMER_PERIOD, self.control_loop)  # 0.1초마다 호출
 
-    def calibration(self):
-        print("Calibration Start")
-
-        sampling_number = 5000
-        sample_sum = 0
-        for i in range(sampling_number):
-            raw_velocity = self.CalculateVelocity(self.ReadAnalog())
-            self.filtered_velocity = self.alpha * raw_velocity + (1 - self.alpha) * self.filtered_velocity
-            
-            sample_sum += raw_velocity
-            time.sleep(0.001)
-        self.offset = sample_sum / sampling_number
-        print(f"Calibration Finish \n Offset : {self.offset}")
 
     def listener_callback(self, msg):
         """
@@ -80,6 +67,7 @@ class MotorController(Node):
         """
         self.desired_angle = msg.data  # ROS에서 받은 목표 각도
         self.isFinish = False 
+        self.msgIn = True
 
     def ReadAnalog(self):
         """
@@ -119,80 +107,39 @@ class MotorController(Node):
             float: 계산된 각속도 (deg/s).
         """
         return -voltage * 180  # 각속도 계산 (deg/s)
+    
 
-    def PIDControl(self, desiredPosition, currentPosition, dt):
+    def CalculateVoltage(self, velocity):
         """
-        PID 제어 알고리즘을 사용하여 출력 값을 계산하는 함수입니다.
+        주어진 각속도에 따라 전압을 계산하는 함수입니다.
         
         Args:
-            desiredPosition (float): 목표 위치.
-            currentPosition (float): 현재 위치.
-            dt (float): 시간 간격.
+            float: 입력 각속도 (rpm).
         
         Returns:
-            float: PID 제어 출력을 나타내는 값.
+            voltage (float): 계산된 전압 값.
         """
-        pos_error = desiredPosition - currentPosition
-        pos_derivative = (pos_error - self.previous_error) / dt
-        output = self.Kp * pos_error + self.Kd * pos_derivative + self.Ki * 0  # Ki는 사용하지 않음
-        self.previous_error = pos_error
-        return output
+        return -velocity / 750  # 각속도 계산 (deg/s)
+
+    def RpmToDegPerSec(self, rpm):
+        deg_per_sec = rpm * (360 / 60)
+        return deg_per_sec
 
     def control_loop(self):
         """
         제어 루프를 실행하는 함수입니다. 
         이 함수는 타이머에 의해 주기적으로 호출되어 모터의 제어를 수행합니다.
         """
-
-
-        current_time = time.time()
-        dt = current_time - self.previous_time
-        self.previous_time = current_time
-        print(dt)
-
-        raw_velocity = self.CalculateVelocity(self.ReadAnalog()) - self.offset
-        # 저역 통과 필터
-        self.filtered_velocity = self.alpha * raw_velocity + (1 - self.alpha) * self.filtered_velocity
-        print(f"Offset : {self.offset}")
-        
-
-        
-        # 각도 업데이트
-    
-        # if not self.isFinish:
-
-        if(self.filtered_velocity < 3 and self.filtered_velocity > -3):
-            self.filtered_velocity = 0.0
-
-
-        self.angle += self.filtered_velocity * dt  
-
-        # 오차 범위 확인
-        ErrorBoundary = 0.1
-
-
-        pid_output = self.PIDControl(self.desired_angle, self.angle, dt)
-        current_output = pid_output / TORQUE_CONSTANT
-        voltage_output = current_output / 0.59
-
-        # 출력 전압 제한
-        voltage_output = max(-10, min(10, voltage_output))
-        self.get_logger().info(f"Moving : {not self.isFinish}, 각도: {self.angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
-        
-        # 퍼블리시
-        self.raw_velocity_publisher.publish(Float32(data = raw_velocity))
-        self.filtered_velocity_publisher.publish(Float32(data = float(self.filtered_velocity)))
-        self.angle_publisher.publish(Float32(data = float(self.angle)))
-        self.desired_angle_publisher.publish(Float32(data = float(self.desired_angle)))
-
-        if abs(self.desired_angle - self.angle) < ErrorBoundary:
+        if(self.msgIn):
+            maxrpm = 2500                                           # [rpm]
+            angular_velocity = self.RpmToDegPerSec(maxrpm) / 25     # [deg/s] , 25 : 기어비
+            voltage = self.CalculateVoltage(maxrpm)
+            control_time = self.desired_angle / angular_velocity    # s = velocity_max * control_time
+            self.WriteAnalog(voltage)
+            time.sleep(control_time)
             self.WriteAnalog(0)
-            self.get_logger().info("작업 완료")
-            # self.isFinish = True
-            pass
+            self.msgIn = False
 
-        if not self.isFinish:
-            self.WriteAnalog(voltage_output)
 
 def main(args=None):
     """
@@ -201,7 +148,6 @@ def main(args=None):
     Args:
         args (list, optional): 커맨드라인 인자. 기본값은 None입니다.
     """
-
     try:
         rclpy.init(args=args)
         controller = MotorController()
