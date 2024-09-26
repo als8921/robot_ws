@@ -1,7 +1,7 @@
 import time
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Int16, Float32
+from std_msgs.msg import Int16, Float32, Bool
 from Automation.BDaq import *
 from Automation.BDaq.InstantAoCtrl import InstantAoCtrl
 from Automation.BDaq.InstantAiCtrl import InstantAiCtrl
@@ -20,20 +20,23 @@ class MotorController(Node):
         
         self.current_angle = 0  # 현재 각도 초기화
         self.filtered_velocity = 0  # 필터링된 각속도 초기화
-        self.alpha = 0.5            # 필터 계수 (0 < alpha < 1)
+        self.alpha = 0.5            # LPF 필터 계수 (0 < alpha < 1)
         self.offset = 0
         
         # PID 제어 변수
-        self.kp = 0.2
-        self.ki = 0     
+        self.kp = 0.2  
         self.kd = 0.025
         self.previous_error = 0
 
         self.calibration()
         self.desired_angle = 0  # 목표 각도 초기화
-        self.subscription = self.create_subscription(Int16, '/rail/position', self.listener_callback, 10)
+        self.pos_subscription = self.create_subscription(Int16, '/rcs/rail_refpos', self.pos_callback, 10)
+        self.emg_subscription = self.create_subscription(Bool, '/rcs/rail_emg', self.emg_callback, 10)
+        self.cali_subscription = self.create_subscription(Bool, '/rcs/rail_calib', self.cali_callback, 10)
 
-        # 필터링된 각속도를 발행하기 위한 퍼블리셔 설정
+        self.emergency = False
+
+        # 시각화를 위한 퍼블리셔 설정
         self.raw_velocity_publisher = self.create_publisher(Float32, '/motor/raw_velocity', 10)
         self.filtered_velocity_publisher = self.create_publisher(Float32, '/motor/filtered_velocity', 10)
         self.angle_publisher = self.create_publisher(Float32, '/motor/angle', 10)
@@ -57,15 +60,20 @@ class MotorController(Node):
         self.offset = sample_sum / sampling_number
         print(f"Calibration Finish \n Offset: {self.offset}")
 
-    def listener_callback(self, msg):
-        """ ROS 2 메시지를 수신하는 콜백 함수 """
+    def cali_callback(self, msg):
+        print(msg.data, "Calibration Subscribed")
+
+    def emg_callback(self, msg):
+        self.emergency = msg.data
+    
+    def pos_callback(self, msg):
         self.desired_angle = msg.data  # 목표 각도 설정
 
     def read_analog(self):
         """ 아날로그 입력을 읽는 함수 """
         ai_channel = 0
-        _, scaled_data = self.instant_ai.readDataF64(ai_channel, 1)
-        return scaled_data[0]
+        _, analog_data = self.instant_ai.readDataF64(ai_channel, 1)
+        return analog_data[0]
     
     def write_analog(self, voltage):
         """ 아날로그 출력을 설정하는 함수 """
@@ -83,7 +91,7 @@ class MotorController(Node):
         """ PID 제어 알고리즘을 사용하여 출력 값을 계산하는 함수 """
         pos_error = desired_position - current_position
         pos_derivative = (pos_error - self.previous_error) / dt
-        output = self.kp * pos_error + self.kd * pos_derivative  # Ki는 사용하지 않음
+        output = self.kp * pos_error + self.kd * pos_derivative  # i 제어는 사용하지 않음
         self.previous_error = pos_error
         return output
 
@@ -104,15 +112,17 @@ class MotorController(Node):
             self.filtered_velocity = 0.0
         self.current_angle += self.filtered_velocity * dt  
 
-        pid_output = self.pid_control(self.desired_angle, self.current_angle, dt)
-        voltage_output = pid_output
+        voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
 
         # 출력 전압 제한
         voltage_output = max(-10, min(10, voltage_output))
         self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
         
         # 모터에 값 전달
-        self.write_analog(voltage_output)
+        if(self.emergency):
+            self.write_analog(0)
+        else:
+            self.write_analog(voltage_output)
 
         # 퍼블리시
         self.raw_velocity_publisher.publish(Float32(data=raw_velocity))
