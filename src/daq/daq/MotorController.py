@@ -24,9 +24,9 @@ class MotorController(Node):
         self.offset = 0
         
         # PID 제어 변수
-        self.kp = 10.0
+        self.kp = 0.2
         self.ki = 0     
-        self.kd = 1 
+        self.kd = 0.025
         self.previous_error = 0
 
         self.calibration()
@@ -105,7 +105,7 @@ class MotorController(Node):
         self.current_angle += self.filtered_velocity * dt  
 
         pid_output = self.pid_control(self.desired_angle, self.current_angle, dt)
-        voltage_output = pid_output / 86.73
+        voltage_output = pid_output
 
         # 출력 전압 제한
         voltage_output = max(-10, min(10, voltage_output))
@@ -129,6 +129,8 @@ def main(args=None):
 
     except Exception as e:
         print("Paused:", e)
+
+    finally:
         controller.write_analog(0)
         controller.destroy_node()
         rclpy.shutdown()
