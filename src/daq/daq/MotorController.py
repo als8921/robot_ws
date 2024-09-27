@@ -14,11 +14,11 @@ DEVICE_DESCRIPTION = "USB-4716,BID#0"
 TIMER_PERIOD = 0.01
 
 class STATE(Enum):
-    STABLE = 0
-    EMERGENCY = 1
-    LIMIT = 2
-    HOMING = 3
-    CALIBRATION = 4
+    STABLE = "STABLE"
+    EMERGENCY = "EMERGENCY"
+    LIMIT = "LIMIT"
+    HOMING = "HOMING"
+    CALIBRATION = "CALIBRATION"
 
 class MotorController(Node):
     def __init__(self):
@@ -34,7 +34,7 @@ class MotorController(Node):
         self.offset = 0
         
         # PID 제어 변수
-        self.kp = 0.2  
+        self.kp = 0.2
         self.kd = 0.025
         self.previous_error = 0
         self.desired_angle = 0  # 목표 각도 초기화
@@ -60,7 +60,7 @@ class MotorController(Node):
         print("Calibration Start")
         print("Do not move the motor.")
 
-        sampling_number = calibration_time / TIMER_PERIOD
+        sampling_number = int(calibration_time / TIMER_PERIOD)
         sample_sum = 0
         for _ in range(sampling_number):
             raw_velocity = self.calculate_velocity(self.read_analog())
@@ -122,6 +122,7 @@ class MotorController(Node):
         self.previous_time = current_time
 
         if(self.State == STATE.CALIBRATION):
+            self.write_analog(0)
             self.offset = self.calibration(5)
             self.State = STATE.STABLE
 
@@ -130,8 +131,8 @@ class MotorController(Node):
         if(left_limit & right_limit & origin_limit):
             pass
         else:
-            print("LEFT ===== ORIGIN ===== RIGHT")
-            print(f"   {left_limit}          {origin_limit}         {right_limit} ")
+            # print("LEFT ===== ORIGIN ===== RIGHT")
+            # print(f"   {left_limit}          {origin_limit}         {right_limit} ")
 
             if(left_limit == 0 and right_limit == 0):
                 self.State = STATE.STABLE
@@ -142,24 +143,27 @@ class MotorController(Node):
             if(origin_limit == 1):
                 self.current_angle = 0
 
+        # Velocity를 받아와서 적분을 통해 angle을 구하는 과정
+        raw_velocity = self.calculate_velocity(self.read_analog()) - self.offset
+        # Low Pass Filter
+        self.filtered_velocity = self.alpha * raw_velocity + (1 - self.alpha) * self.filtered_velocity
+        # 특정 값 사이의 속도를 무시하여 에러 적분 값이 누적되는 것을 막음
+        VELOCITY_ERROR_BOUNDARY = 3
+        if abs(self.filtered_velocity) < VELOCITY_ERROR_BOUNDARY:
+            self.filtered_velocity = 0.0
+        self.current_angle += self.filtered_velocity * dt  
 
-
+        """
+            STATE에 따른 작업
+            ---
+            STABLE      : 안정상태로 PID제어 수행
+            EMERGENCY   : /rcs/rail_emg 토픽이 True로 들어온 상태로 정지
+            LIMIT       : 리밋센서에 인식된 상태로 정지
+        """
+        
         if(self.State == STATE.STABLE):
-            # Velocity를 받아와서 적분을 통해 angle을 구하는 과정
-            raw_velocity = self.calculate_velocity(self.read_analog()) - self.offset
-            # Low Pass Filter
-            self.filtered_velocity = self.alpha * raw_velocity + (1 - self.alpha) * self.filtered_velocity
-
-            # 특정 값 사이의 속도를 무시하여 에러 적분 값이 누적되는 것을 막음
-            VELOCITY_ERROR_BOUNDARY = 3
-            if abs(self.filtered_velocity) < VELOCITY_ERROR_BOUNDARY:
-                self.filtered_velocity = 0.0
-            self.current_angle += self.filtered_velocity * dt  
-
             voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
-
-            # 출력 전압 제한
-            voltage_output = max(-10, min(10, voltage_output))
+            voltage_output = max(-10, min(10, voltage_output)) # 출력 전압 제한
             self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
             self.write_analog(voltage_output)
 
