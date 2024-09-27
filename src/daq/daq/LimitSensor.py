@@ -10,18 +10,32 @@ def ReadDigital():
     if BioFailed(ret):
         return False
 
-    limit = data[0] & 1
-    print(limit)
-    return limit
+    limit_data = [0] * 3
+    limit_data[0] = data[0] & 1
+    limit_data[1] = (data[0] >> 1) & 1
+    limit_data[2] = (data[0] >> 2) & 1
+    return limit_data
 
 def Process():
     global instantDiCtrl
     instantDiCtrl = InstantDiCtrl(deviceDescription)
-
+    i = 0
     while not kbhit():
-        limit_data = ReadDigital()
-        print(limit_data)
+        i += 1
+        left_limit, origin_limit, right_limit = ReadDigital()
+        if(left_limit & right_limit & origin_limit):
+            pass
+        else:
+            print("LEFT ===== ORIGIN ===== RIGHT")
+            print(f"   {left_limit}          {origin_limit}         {right_limit} ")
 
+            
+            if(left_limit == 1):
+                print("LEFT DETECTED", i)
+            if(right_limit == 1):
+                print("RIGHT DETECTED", i)
+            if(origin_limit == 1):
+                print("ORIGIN", i)
 
     instantDiCtrl.dispose()
 
