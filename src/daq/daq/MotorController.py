@@ -1,19 +1,29 @@
 import time
 import rclpy
+from enum import Enum
 from rclpy.node import Node
 from std_msgs.msg import Int16, Float32, Bool
 from Automation.BDaq import *
 from Automation.BDaq.InstantAoCtrl import InstantAoCtrl
 from Automation.BDaq.InstantAiCtrl import InstantAiCtrl
+from Automation.BDaq.InstantDiCtrl import InstantDiCtrl
 from Automation.BDaq.BDaqApi import BioFailed
 
 # 초기 파라미터 설정
 DEVICE_DESCRIPTION = "USB-4716,BID#0"
 TIMER_PERIOD = 0.01
 
+class STATE(Enum):
+    STABLE = 0
+    EMERGENCY = 1
+    LIMIT = 2
+    HOMING = 3
+    CALIBRATION = 4
+
 class MotorController(Node):
     def __init__(self):
         super().__init__('motor_controller')
+        self.instant_di = InstantDiCtrl(DEVICE_DESCRIPTION)
         self.instant_ao = InstantAoCtrl(DEVICE_DESCRIPTION)
         self.instant_ai = InstantAiCtrl(DEVICE_DESCRIPTION)
         self.instant_ao.channels[0].valueRange = ValueRange.V_Neg10To10
@@ -27,14 +37,13 @@ class MotorController(Node):
         self.kp = 0.2  
         self.kd = 0.025
         self.previous_error = 0
-
-        self.calibration()
         self.desired_angle = 0  # 목표 각도 초기화
+        
+        self.State = STATE.CALIBRATION
+
         self.pos_subscription = self.create_subscription(Int16, '/rcs/rail_refpos', self.pos_callback, 10)
         self.emg_subscription = self.create_subscription(Bool, '/rcs/rail_emg', self.emg_callback, 10)
         self.cali_subscription = self.create_subscription(Bool, '/rcs/rail_calib', self.cali_callback, 10)
-
-        self.emergency = False
 
         # 시각화를 위한 퍼블리셔 설정
         self.raw_velocity_publisher = self.create_publisher(Float32, '/motor/raw_velocity', 10)
@@ -46,28 +55,41 @@ class MotorController(Node):
         # ROS 타이머 설정
         self.timer = self.create_timer(TIMER_PERIOD, self.control_loop)
 
-    def calibration(self):
+    def calibration(self, calibration_time):
         """ 에러의 Offset을 얻기 위한 Calibration """
         print("Calibration Start")
         print("Do not move the motor.")
 
-        sampling_number = 5000
+        sampling_number = calibration_time / TIMER_PERIOD
         sample_sum = 0
         for _ in range(sampling_number):
             raw_velocity = self.calculate_velocity(self.read_analog())
             sample_sum += raw_velocity
-            time.sleep(0.001)
-        self.offset = sample_sum / sampling_number
-        print(f"Calibration Finish \n Offset: {self.offset}")
+            time.sleep(TIMER_PERIOD)
+        return sample_sum / sampling_number
 
     def cali_callback(self, msg):
         print(msg.data, "Calibration Subscribed")
 
     def emg_callback(self, msg):
-        self.emergency = msg.data
+        if(msg.data):
+            self.State = STATE.EMERGENCY
+        else:
+            self.State = STATE.STABLE
+
     
     def pos_callback(self, msg):
         self.desired_angle = msg.data  # 목표 각도 설정
+
+    def read_digital(self):
+        _, data = self.instant_di.readAny(0, 1)
+        length = 3
+        digitaldata = [0] * length
+
+        for i in range(length):
+            digitaldata[i] = (data[0] >> i) & 1
+
+        return digitaldata
 
     def read_analog(self):
         """ 아날로그 입력을 읽는 함수 """
@@ -79,9 +101,7 @@ class MotorController(Node):
         """ 아날로그 출력을 설정하는 함수 """
         ao_channel = 0
         voltage = max(-10, min(10, voltage))  # 전압 제한
-        ret = self.instant_ao.writeAny(ao_channel, 1, None, [-voltage])
-        if BioFailed(ret):
-            self.get_logger().error("데이터 쓰기 중 오류 발생.")
+        self.instant_ao.writeAny(ao_channel, 1, None, [-voltage])
 
     def calculate_velocity(self, voltage):
         """ 주어진 전압에 따라 각속도를 계산하는 함수 """
@@ -101,28 +121,56 @@ class MotorController(Node):
         dt = current_time - self.previous_time
         self.previous_time = current_time
 
-        # Velocity를 받아와서 적분을 통해 angle을 구하는 과정
-        raw_velocity = self.calculate_velocity(self.read_analog()) - self.offset
-        # Low Pass Filter
-        self.filtered_velocity = self.alpha * raw_velocity + (1 - self.alpha) * self.filtered_velocity
+        if(self.State == STATE.CALIBRATION):
+            self.offset = self.calibration(5)
+            self.State = STATE.STABLE
 
-        # 특정 값 사이의 속도를 무시하여 에러 적분 값이 누적되는 것을 막음
-        VELOCITY_ERROR_BOUNDARY = 3
-        if abs(self.filtered_velocity) < VELOCITY_ERROR_BOUNDARY:
-            self.filtered_velocity = 0.0
-        self.current_angle += self.filtered_velocity * dt  
 
-        voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
-
-        # 출력 전압 제한
-        voltage_output = max(-10, min(10, voltage_output))
-        self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
-        
-        # 모터에 값 전달
-        if(self.emergency):
-            self.write_analog(0)
+        left_limit, origin_limit, right_limit = self.read_digital()
+        if(left_limit & right_limit & origin_limit):
+            pass
         else:
+            print("LEFT ===== ORIGIN ===== RIGHT")
+            print(f"   {left_limit}          {origin_limit}         {right_limit} ")
+
+            if(left_limit == 0 and right_limit == 0):
+                self.State = STATE.STABLE
+            if(left_limit == 1):
+                self.State = STATE.LIMIT
+            if(right_limit == 1):
+                self.State = STATE.LIMIT
+            if(origin_limit == 1):
+                self.current_angle = 0
+
+
+
+        if(self.State == STATE.STABLE):
+            # Velocity를 받아와서 적분을 통해 angle을 구하는 과정
+            raw_velocity = self.calculate_velocity(self.read_analog()) - self.offset
+            # Low Pass Filter
+            self.filtered_velocity = self.alpha * raw_velocity + (1 - self.alpha) * self.filtered_velocity
+
+            # 특정 값 사이의 속도를 무시하여 에러 적분 값이 누적되는 것을 막음
+            VELOCITY_ERROR_BOUNDARY = 3
+            if abs(self.filtered_velocity) < VELOCITY_ERROR_BOUNDARY:
+                self.filtered_velocity = 0.0
+            self.current_angle += self.filtered_velocity * dt  
+
+            voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
+
+            # 출력 전압 제한
+            voltage_output = max(-10, min(10, voltage_output))
+            self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
             self.write_analog(voltage_output)
+
+        elif(self.State == STATE.EMERGENCY):
+            self.write_analog(0)
+            print("EMERGENCY")
+
+        elif(self.State == STATE.LIMIT):
+            self.write_analog(0)
+            print("LIMIT")
+        
 
         # 퍼블리시
         self.raw_velocity_publisher.publish(Float32(data=raw_velocity))
