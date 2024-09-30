@@ -2,7 +2,7 @@ import time
 import rclpy
 from enum import Enum
 from rclpy.node import Node
-from std_msgs.msg import Int16, Float32, Bool
+from std_msgs.msg import Int16, Float32, Bool, String
 from Automation.BDaq import *
 from Automation.BDaq.InstantAoCtrl import InstantAoCtrl
 from Automation.BDaq.InstantAiCtrl import InstantAiCtrl
@@ -53,9 +53,11 @@ class MotorController(Node):
         self.filtered_velocity_publisher = self.create_publisher(Float32, '/motor/filtered_velocity', 10)
         self.angle_publisher = self.create_publisher(Float32, '/motor/angle', 10)
         self.desired_angle_publisher = self.create_publisher(Float32, '/motor/desired_angle', 10)
-        self.current_publisher = self.create_publisher(Float32, 'motor/current', 10)
 
-        self.position_publisher = self.create_publisher(Float32, '/rcs/position', 10)
+
+        self.current_publisher = self.create_publisher(Float32, 'motor/current', 10)
+        self.position_publisher = self.create_publisher(String, '/rcs/position', 10)
+        self.status_publisher = self.create_publisher(Bool, '/rcs/status', 10)
         
         self.previous_time = time.time()
         # ROS 타이머 설정
@@ -180,10 +182,12 @@ class MotorController(Node):
 
         if(self.State == STATE.STEADYSTATE):
             self.write_analog(0)
+            self.status_publisher.publish(Bool(data = True))
             print("STEADYSTATE")
             
         elif(self.State == STATE.STABLE):
             self.write_digital(0)
+            self.status_publisher.publish(Bool(data = False))
             voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
             voltage_output = max(-10, min(10, voltage_output)) # 출력 전압 제한
             self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
@@ -201,7 +205,7 @@ class MotorController(Node):
         
 
         current_position = self.current_angle * 0.4523 / 720    # unit : [m]
-        self.position_publisher.publish(Float32(data = current_position))
+        self.position_publisher.publish(String(data = str(current_position)))
 
         # 퍼블리시
         self.raw_velocity_publisher.publish(Float32(data=raw_velocity))
