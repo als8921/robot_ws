@@ -146,8 +146,10 @@ class MotorController(Node):
             # print("LEFT ===== ORIGIN ===== RIGHT")
             # print(f"   {left_limit}          {origin_limit}         {right_limit} ")
 
+        ######################################### 이부분 수정해야함 ###################################
             if(left_limit == 0 and right_limit == 0):
                 self.State = STATE.STABLE
+        ###########################################################################################
             if(left_limit == 1):
                 self.State = STATE.LIMIT
             if(right_limit == 1):
