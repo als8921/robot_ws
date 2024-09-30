@@ -6,6 +6,7 @@ from std_msgs.msg import Int16, Float32, Bool
 from Automation.BDaq import *
 from Automation.BDaq.InstantAoCtrl import InstantAoCtrl
 from Automation.BDaq.InstantAiCtrl import InstantAiCtrl
+from Automation.BDaq.InstantDoCtrl import InstantDoCtrl
 from Automation.BDaq.InstantDiCtrl import InstantDiCtrl
 from Automation.BDaq.BDaqApi import BioFailed
 
@@ -24,6 +25,7 @@ class STATE(Enum):
 class MotorController(Node):
     def __init__(self):
         super().__init__('motor_controller')
+        self.instant_do = InstantDoCtrl(DEVICE_DESCRIPTION)
         self.instant_di = InstantDiCtrl(DEVICE_DESCRIPTION)
         self.instant_ao = InstantAoCtrl(DEVICE_DESCRIPTION)
         self.instant_ai = InstantAiCtrl(DEVICE_DESCRIPTION)
@@ -95,7 +97,10 @@ class MotorController(Node):
             digitaldata[i] = (data[0] >> i) & 1
 
         return digitaldata
-
+    
+    def write_digital(self, data):
+        self.instant_do.writeAny(0, 1, [data])
+        
     def read_analog(self):
         """ 아날로그 입력을 읽는 함수 """
         ai_channel = 0
@@ -185,10 +190,13 @@ class MotorController(Node):
 
         elif(self.State == STATE.EMERGENCY):
             print("EMERGENCY")
+            self.write_digital(1)
+            self.write_analog(0)
 
         elif(self.State == STATE.LIMIT):
-            self.write_analog(0)
             print("LIMIT")
+            self.write_digital(1)
+            self.write_analog(0)
         
 
         current_position = self.current_angle * 0.4523 / 720    # unit : [m]
