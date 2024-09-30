@@ -50,6 +50,8 @@ class MotorController(Node):
         self.filtered_velocity_publisher = self.create_publisher(Float32, '/motor/filtered_velocity', 10)
         self.angle_publisher = self.create_publisher(Float32, '/motor/angle', 10)
         self.desired_angle_publisher = self.create_publisher(Float32, '/motor/desired_angle', 10)
+
+        self.position_publisher = self.create_publisher(Float32, '/rcs/position', 10)
         
         self.previous_time = time.time()
         # ROS 타이머 설정
@@ -76,10 +78,10 @@ class MotorController(Node):
             self.State = STATE.EMERGENCY
         else:
             self.State = STATE.STABLE
-
     
     def pos_callback(self, msg):
-        self.desired_angle = msg.data  # 목표 각도 설정
+        self.desired_position = msg.data                            # unit : [m]
+        self.desired_angle = self.desired_position * 720 / 0.4523   # unit : [degree]
 
     def read_digital(self):
         _, data = self.instant_di.readAny(0, 1)
@@ -175,6 +177,9 @@ class MotorController(Node):
             self.write_analog(0)
             print("LIMIT")
         
+
+        current_position = self.current_angle * 0.4523 / 720    # unit : [m]
+        self.position_publisher.publish(Float32(data = current_position))
 
         # 퍼블리시
         self.raw_velocity_publisher.publish(Float32(data=raw_velocity))
