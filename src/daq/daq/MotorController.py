@@ -157,6 +157,7 @@ class MotorController(Node):
             self.filtered_velocity = 0.0
         self.current_angle += self.filtered_velocity * dt  
 
+        # 0.1도 사이로 값이 정해졌을 때 모터를 멈춤
         if(abs(self.current_angle - self.desired_angle) < 0.1):
             self.State = STATE.STEADYSTATE
 
@@ -167,7 +168,7 @@ class MotorController(Node):
             EMERGENCY   : /rcs/rail_emg 토픽이 True로 들어온 상태로 정지
             LIMIT       : 리밋센서에 인식된 상태로 정지
         """
-        
+
         if(self.State == STATE.STEADYSTATE):
             self.write_analog(0)
             print("STEADYSTATE")
