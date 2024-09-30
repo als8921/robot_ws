@@ -56,7 +56,7 @@ class MotorController(Node):
 
 
         self.current_publisher = self.create_publisher(Float32, 'motor/current', 10)
-        self.position_publisher = self.create_publisher(String, '/rcs/position', 10)
+        self.position_publisher = self.create_publisher(String, '/rcs/rail_actpos', 10)
         self.status_publisher = self.create_publisher(Bool, '/rcs/status', 10)
         
         self.previous_time = time.time()
