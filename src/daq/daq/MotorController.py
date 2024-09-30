@@ -19,6 +19,7 @@ class STATE(Enum):
     LIMIT = "LIMIT"
     HOMING = "HOMING"
     CALIBRATION = "CALIBRATION"
+    STEADYSTATE = "STEADYSTATE"
 
 class MotorController(Node):
     def __init__(self):
@@ -80,6 +81,7 @@ class MotorController(Node):
             self.State = STATE.STABLE
     
     def pos_callback(self, msg):
+        self.State = STATE.STABLE
         self.desired_position = msg.data                            # unit : [m]
         self.desired_angle = self.desired_position * 720 / 0.4523   # unit : [degree]
 
@@ -155,6 +157,9 @@ class MotorController(Node):
             self.filtered_velocity = 0.0
         self.current_angle += self.filtered_velocity * dt  
 
+        if(abs(self.current_angle - self.desired_angle) < 0.1):
+            self.State = STATE.STEADYSTATE
+
         """
             STATE에 따른 작업
             ---
@@ -163,6 +168,10 @@ class MotorController(Node):
             LIMIT       : 리밋센서에 인식된 상태로 정지
         """
         
+        if(self.State == STATE.STEADYSTATE):
+            self.write_analog(0)
+            print("STEADYSTATE")
+            
         if(self.State == STATE.STABLE):
             voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
             voltage_output = max(-10, min(10, voltage_output)) # 출력 전압 제한
@@ -170,7 +179,6 @@ class MotorController(Node):
             self.write_analog(voltage_output)
 
         elif(self.State == STATE.EMERGENCY):
-            self.write_analog(0)
             print("EMERGENCY")
 
         elif(self.State == STATE.LIMIT):
