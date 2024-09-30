@@ -39,7 +39,6 @@ class MotorController(Node):
         self.kd = 0.025
         self.previous_error = 0
         self.desired_angle = 0  # 목표 각도 초기화
-        self.Current = 0
         
         self.State = STATE.CALIBRATION
 
@@ -68,7 +67,7 @@ class MotorController(Node):
         sampling_number = int(calibration_time / TIMER_PERIOD)
         sample_sum = 0
         for _ in range(sampling_number):
-            raw_velocity = self.calculate_velocity(self.read_analog())
+            raw_velocity = self.calculate_velocity(self.read_analog()[0])
             sample_sum += raw_velocity
             time.sleep(TIMER_PERIOD)
         return sample_sum / sampling_number
@@ -101,9 +100,7 @@ class MotorController(Node):
         """ 아날로그 입력을 읽는 함수 """
         ai_channel = 0
         _, analog_data = self.instant_ai.readDataF64(ai_channel, 2)
-        self.Current = analog_data[1] * 5.9 / 4
-        print(self.Current)
-        return analog_data[0]
+        return analog_data
     
     def write_analog(self, voltage):
         """ 아날로그 출력을 설정하는 함수 """
@@ -151,8 +148,10 @@ class MotorController(Node):
             if(origin_limit == 1):
                 self.current_angle = 0
 
+        analog_input = self.read_analog()
+        current = analog_input[1] * 5.9 / 4 # Analog to Current     -4V ~ 4V    :   -5.9A ~ 5.9A
         # Velocity를 받아와서 적분을 통해 angle을 구하는 과정
-        raw_velocity = self.calculate_velocity(self.read_analog()) - self.offset
+        raw_velocity = self.calculate_velocity(analog_input[0]) - self.offset
         # Low Pass Filter
         self.filtered_velocity = self.alpha * raw_velocity + (1 - self.alpha) * self.filtered_velocity
         # 특정 값 사이의 속도를 무시하여 에러 적분 값이 누적되는 것을 막음
@@ -200,10 +199,14 @@ class MotorController(Node):
         self.filtered_velocity_publisher.publish(Float32(data=float(self.filtered_velocity)))
         self.angle_publisher.publish(Float32(data=float(self.current_angle)))
         self.desired_angle_publisher.publish(Float32(data=float(self.desired_angle)))
-        self.current_publisher.publish(Float32(data=float(self.Current)))
+        self.current_publisher.publish(Float32(data=float(current)))
 
 def main(args=None):
     """ ROS 2 노드를 초기화하고 실행하는 메인 함수 """
+    rclpy.init(args=args)
+    controller = MotorController()
+    rclpy.spin(controller)
+
     try:
         rclpy.init(args=args)
         controller = MotorController()
