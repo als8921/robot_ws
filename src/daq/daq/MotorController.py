@@ -183,6 +183,7 @@ class MotorController(Node):
             print("STEADYSTATE")
             
         elif(self.State == STATE.STABLE):
+            self.write_digital(0)
             voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
             voltage_output = max(-10, min(10, voltage_output)) # 출력 전압 제한
             self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
