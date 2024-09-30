@@ -157,13 +157,14 @@ class MotorController(Node):
             self.filtered_velocity = 0.0
         self.current_angle += self.filtered_velocity * dt  
 
-        # 0.1도 사이로 값이 정해졌을 때 모터를 멈춤
+        # error값이 0.1 미만일 때 모터를 멈춤
         if(abs(self.current_angle - self.desired_angle) < 0.1):
             self.State = STATE.STEADYSTATE
 
         """
             STATE에 따른 작업
             ---
+            STEADYSTATE : 정상상태로 다음 명령이 들어올 때까지 모터를 정지
             STABLE      : 안정상태로 PID제어 수행
             EMERGENCY   : /rcs/rail_emg 토픽이 True로 들어온 상태로 정지
             LIMIT       : 리밋센서에 인식된 상태로 정지
@@ -173,7 +174,7 @@ class MotorController(Node):
             self.write_analog(0)
             print("STEADYSTATE")
             
-        if(self.State == STATE.STABLE):
+        elif(self.State == STATE.STABLE):
             voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
             voltage_output = max(-10, min(10, voltage_output)) # 출력 전압 제한
             self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
