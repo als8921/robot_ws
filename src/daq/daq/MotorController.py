@@ -39,6 +39,7 @@ class MotorController(Node):
         self.kd = 0.025
         self.previous_error = 0
         self.desired_angle = 0  # 목표 각도 초기화
+        self.Current = 0
         
         self.State = STATE.CALIBRATION
 
@@ -51,6 +52,7 @@ class MotorController(Node):
         self.filtered_velocity_publisher = self.create_publisher(Float32, '/motor/filtered_velocity', 10)
         self.angle_publisher = self.create_publisher(Float32, '/motor/angle', 10)
         self.desired_angle_publisher = self.create_publisher(Float32, '/motor/desired_angle', 10)
+        self.current_publisher = self.create_publisher(Float32, 'motor/current', 10)
 
         self.position_publisher = self.create_publisher(Float32, '/rcs/position', 10)
         
@@ -98,7 +100,9 @@ class MotorController(Node):
     def read_analog(self):
         """ 아날로그 입력을 읽는 함수 """
         ai_channel = 0
-        _, analog_data = self.instant_ai.readDataF64(ai_channel, 1)
+        _, analog_data = self.instant_ai.readDataF64(ai_channel, 2)
+        self.Current = analog_data[1] * 5.9 / 4
+        print(self.Current)
         return analog_data[0]
     
     def write_analog(self, voltage):
@@ -196,6 +200,7 @@ class MotorController(Node):
         self.filtered_velocity_publisher.publish(Float32(data=float(self.filtered_velocity)))
         self.angle_publisher.publish(Float32(data=float(self.current_angle)))
         self.desired_angle_publisher.publish(Float32(data=float(self.desired_angle)))
+        self.current_publisher.publish(Float32(data=float(self.Current)))
 
 def main(args=None):
     """ ROS 2 노드를 초기화하고 실행하는 메인 함수 """
