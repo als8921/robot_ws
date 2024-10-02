@@ -139,23 +139,23 @@ class MotorController(Node):
             self.State = STATE.STABLE
 
 
-        left_limit, origin_limit, right_limit = self.read_digital()
-        if(left_limit & right_limit & origin_limit):
-            pass
-        else:
-            # print("LEFT ===== ORIGIN ===== RIGHT")
-            # print(f"   {left_limit}          {origin_limit}         {right_limit} ")
+        # left_limit, origin_limit, right_limit = self.read_digital()
+        # if(left_limit & right_limit & origin_limit):
+        #     pass
+        # else:
+        #     # print("LEFT ===== ORIGIN ===== RIGHT")
+        #     # print(f"   {left_limit}          {origin_limit}         {right_limit} ")
 
-        ######################################### 이부분 수정해야함 ###################################
-            if(left_limit == 0 and right_limit == 0):
-                self.State = STATE.STABLE
-        ###########################################################################################
-            if(left_limit == 1):
-                self.State = STATE.LIMIT
-            if(right_limit == 1):
-                self.State = STATE.LIMIT
-            if(origin_limit == 1):
-                self.current_angle = 0
+        # ######################################### 이부분 수정해야함 ###################################
+        #     if(left_limit == 0 and right_limit == 0):
+        #         self.State = STATE.STABLE
+        # ###########################################################################################
+        #     if(left_limit == 1):
+        #         self.State = STATE.LIMIT
+        #     if(right_limit == 1):
+        #         self.State = STATE.LIMIT
+        #     if(origin_limit == 1):
+        #         self.current_angle = 0
 
         analog_input = self.read_analog()
         current = analog_input[1] * 5.9 / 4 # Analog to Current     -4V ~ 4V    :   -5.9A ~ 5.9A
