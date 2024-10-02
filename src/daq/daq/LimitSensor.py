@@ -20,22 +20,42 @@ def Process():
     global instantDiCtrl
     instantDiCtrl = InstantDiCtrl(deviceDescription)
     i = 0
+    last_left_limit, last_origin_limit, last_right_limit = -1, -1, -1
     while not kbhit():
         i += 1
         left_limit, origin_limit, right_limit = ReadDigital()
         if(left_limit & right_limit & origin_limit):
             pass
         else:
-            print("LEFT ===== ORIGIN ===== RIGHT")
-            print(f"   {left_limit}          {origin_limit}         {right_limit} ")
 
-            
-            if(left_limit == 1):
-                print("LEFT DETECTED", i)
-            if(right_limit == 1):
-                print("RIGHT DETECTED", i)
-            if(origin_limit == 1):
-                print("ORIGIN", i)
+            # 값이 변할 때 마다 출력
+            ##############################################################################
+            if(last_left_limit != left_limit):
+                print("LEFT CHANGED", left_limit)
+                last_left_limit = left_limit
+
+            if(last_right_limit != right_limit):
+                print("RIGHT CHANGED", right_limit)
+                last_right_limit = right_limit
+
+            if(last_origin_limit != origin_limit):
+                print("ORIGIN CHANGED", origin_limit)
+                last_origin_limit = origin_limit
+
+            # 값을 계속 출력
+            ##############################################################################
+            # print("LEFT ===== ORIGIN ===== RIGHT")
+            # print(f"   {left_limit}          {origin_limit}         {right_limit} ")
+
+
+            # 1이 감지될 때 출력
+            ##############################################################################
+            # if(left_limit == 1):
+            #     print("LEFT DETECTED", i)
+            # if(right_limit == 1):
+            #     print("RIGHT DETECTED", i)
+            # if(origin_limit == 1):
+            #     print("ORIGIN", i)
 
     instantDiCtrl.dispose()
 
