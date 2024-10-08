@@ -19,7 +19,6 @@ TIMER_PERIOD = 0.01
 class STATE(Enum):
     STABLE = "STABLE"
     EMERGENCY = "EMERGENCY"
-    LIMIT = "LIMIT"
     HOMING = "HOMING"
     CALIBRATION = "CALIBRATION"
     STEADYSTATE = "STEADYSTATE"
@@ -142,10 +141,6 @@ class MotorController(Node):
             self.offset = self.calibration(5)
             self.State = STATE.STABLE
 
-        # 아두이노 데이터 읽기
-        stateL, stateO, stateR = self.read_arduino_data()
-        if stateL is not None:
-            print(f"Arduino States - Left: {stateL}, Center: {stateO}, Right: {stateR}")
 
 
         analog_input = self.read_analog()
@@ -164,37 +159,43 @@ class MotorController(Node):
         if(abs(self.current_angle - self.desired_angle) < 0.1):
             self.State = STATE.STEADYSTATE
 
+        # 리밋 센서 데이터 읽기
+        Limit_L, Limit_O, Limit_R = self.read_arduino_data()
+        if Limit_L is not None:
+            print(f"Arduino States - Left: {Limit_L}, Center: {Limit_O}, Right: {Limit_R}")
+
         """
             STATE에 따른 작업
             ---
             STEADYSTATE : 정상상태로 다음 명령이 들어올 때까지 모터를 정지
             STABLE      : 안정상태로 PID제어 수행
             EMERGENCY   : /rcs/rail_emg 토픽이 True로 들어온 상태로 정지
-            LIMIT       : 리밋센서에 인식된 상태로 정지
         """
+        if(Limit_O == 1):
+            print("CENTER DETECTED")
 
-        if(self.State == STATE.STEADYSTATE):
-            self.write_analog(0)
-            self.status_publisher.publish(Bool(data = True))
-            print("STEADYSTATE")
-            
-        elif(self.State == STATE.STABLE):
-            self.write_digital(0)
-            self.status_publisher.publish(Bool(data = False))
-            voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
-            voltage_output = max(-10, min(10, voltage_output)) # 출력 전압 제한
-            self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
-            self.write_analog(voltage_output)
-
-        elif(self.State == STATE.EMERGENCY):
-            print("EMERGENCY")
+        if(Limit_L == 1 or Limit_R == 1):
+            print("LIMIT SENSOR DETECTED")
             self.write_digital(1)
             self.write_analog(0)
+        else:
+            if(self.State == STATE.STEADYSTATE):
+                self.write_analog(0)
+                self.status_publisher.publish(Bool(data = True))
+                print("STEADYSTATE")
+                
+            elif(self.State == STATE.STABLE):
+                self.write_digital(0)
+                self.status_publisher.publish(Bool(data = False))
+                voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
+                voltage_output = max(-10, min(10, voltage_output)) # 출력 전압 제한
+                self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
+                self.write_analog(voltage_output)
 
-        elif(self.State == STATE.LIMIT):
-            print("LIMIT")
-            self.write_digital(1)
-            self.write_analog(0)
+            elif(self.State == STATE.EMERGENCY):
+                print("EMERGENCY")
+                self.write_digital(1)
+                self.write_analog(0)
         
 
         current_position = self.current_angle * 0.4523 / 720    # unit : [m]
