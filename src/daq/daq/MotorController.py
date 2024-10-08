@@ -7,8 +7,6 @@ from Automation.BDaq import *
 from Automation.BDaq.InstantAoCtrl import InstantAoCtrl
 from Automation.BDaq.InstantAiCtrl import InstantAiCtrl
 from Automation.BDaq.InstantDoCtrl import InstantDoCtrl
-from Automation.BDaq.InstantDiCtrl import InstantDiCtrl
-from Automation.BDaq.BDaqApi import BioFailed
 
 # 초기 파라미터 설정
 DEVICE_DESCRIPTION = "USB-4716,BID#0"
@@ -26,7 +24,6 @@ class MotorController(Node):
     def __init__(self):
         super().__init__('motor_controller')
         self.instant_do = InstantDoCtrl(DEVICE_DESCRIPTION)
-        self.instant_di = InstantDiCtrl(DEVICE_DESCRIPTION)
         self.instant_ao = InstantAoCtrl(DEVICE_DESCRIPTION)
         self.instant_ai = InstantAiCtrl(DEVICE_DESCRIPTION)
         self.instant_ao.channels[0].valueRange = ValueRange.V_Neg10To10
@@ -89,16 +86,6 @@ class MotorController(Node):
         self.State = STATE.STABLE
         self.desired_position = msg.data                            # unit : [m]
         self.desired_angle = self.desired_position * 720 / 0.4523   # unit : [degree]
-
-    def read_digital(self):
-        _, data = self.instant_di.readAny(0, 1)
-        length = 3
-        digitaldata = [0] * length
-
-        for i in range(length):
-            digitaldata[i] = (data[0] >> i) & 1
-
-        return digitaldata
     
     def write_digital(self, data):
         self.instant_do.writeAny(0, 1, [data])
@@ -139,23 +126,12 @@ class MotorController(Node):
             self.State = STATE.STABLE
 
 
-        # left_limit, origin_limit, right_limit = self.read_digital()
-        # if(left_limit & right_limit & origin_limit):
-        #     pass
-        # else:
-        #     # print("LEFT ===== ORIGIN ===== RIGHT")
-        #     # print(f"   {left_limit}          {origin_limit}         {right_limit} ")
 
-        # ######################################### 이부분 수정해야함 ###################################
-        #     if(left_limit == 0 and right_limit == 0):
-        #         self.State = STATE.STABLE
-        # ###########################################################################################
-        #     if(left_limit == 1):
-        #         self.State = STATE.LIMIT
-        #     if(right_limit == 1):
-        #         self.State = STATE.LIMIT
-        #     if(origin_limit == 1):
-        #         self.current_angle = 0
+
+
+
+
+
 
         analog_input = self.read_analog()
         current = analog_input[1] * 5.9 / 4 # Analog to Current     -4V ~ 4V    :   -5.9A ~ 5.9A
