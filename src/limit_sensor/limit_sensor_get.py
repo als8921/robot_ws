@@ -1,27 +1,30 @@
 import serial
 import time
 
-# 아두이노가 연결된 포트와 보드레이트 설정
-port = '/dev/ttyACM0'  # Windows의 경우 COM 포트, Linux의 경우 /dev/ttyUSB0 등
-baudrate = 9600
+class ArduinoReader:
+    def __init__(self):
+        # 아두이노 연결 설정
+        self.port = '/dev/ttyACM0'  # 포트 설정
+        self.baudrate = 9600
+        self.ser = serial.Serial(self.port, self.baudrate)
 
-# 시리얼 포트 열기
-ser = serial.Serial(port, baudrate)
+        # 데이터 수신 대기
+        time.sleep(2)  # 아두이노와의 연결이 안정될 때까지 대기
 
-# 데이터 수신 대기
-time.sleep(2)  # 아두이노와의 연결이 안정될 때까지 대기
-
-while True:
-    try:
-        if ser.readable():
-            data = ser.readline().decode('utf-8').rstrip()  # 데이터 읽기
-            # print(data)
-            if(len(data) > 0 and data[0] != ","):
-                stateL, stateO, stateR = [1 if i > 10 else 0 for i in list(map(int, data.split(',')))]
+    def read_data(self):
+        try:
+            if self.ser.readable():
+                data = self.ser.readline().decode('utf-8').rstrip()  # 데이터 읽기
+                print(data)
+                stateL, stateO, stateR = map(int, data.split(','))
                 print(stateL, stateO, stateR)
-    
-    except KeyboardInterrupt:
-        break
+        except Exception as e:
+            print(f"Error reading data: {e}")
 
-    except:
-        pass
+def main():
+    arduino_reader = ArduinoReader()
+    while True:
+        arduino_reader.read_data()
+
+if __name__ == '__main__':
+    main()
