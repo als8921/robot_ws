@@ -48,7 +48,7 @@ class MotorController(Node):
         self.State = STATE.CALIBRATION
 
         # ROS 토픽 구독 및 퍼블리셔 설정
-        self.pos_subscription = self.create_subscription(Int16, '/rcs/rail_refpos', self.pos_callback, 10)
+        self.pos_subscription = self.create_subscription(String, '/rcs/rail_refpos', self.pos_callback, 10)
         self.emg_subscription = self.create_subscription(Bool, '/rcs/rail_emg', self.emg_callback, 10)
         self.cali_subscription = self.create_subscription(Bool, '/rcs/rail_calib', self.cali_callback, 10)
         self.limit_subscription = self.create_subscription(Int16MultiArray, '/rcs/limit_sensor', self.limit_callback, 10)
@@ -87,6 +87,8 @@ class MotorController(Node):
 
     def cali_callback(self, msg):
         print(msg.data, "Calibration Subscribed")
+        self.State = STATE.STABLE
+        self.desired_angle = 0    
 
     def emg_callback(self, msg):
         if msg.data:
@@ -95,9 +97,12 @@ class MotorController(Node):
             self.State = STATE.STABLE
     
     def pos_callback(self, msg):
-        self.State = STATE.STABLE
-        self.desired_position = msg.data                            # unit : [m]
-        self.desired_angle = self.desired_position * 720 / 0.4523   # unit : [degree]
+        try:
+            self.State = STATE.STABLE
+            self.desired_position = float(msg.data)                            # unit : [m]
+            self.desired_angle = self.desired_position * 720 / 0.4523   # unit : [degree]
+        except:
+            pass
     
     def write_digital(self, data):
         self.instant_do.writeAny(0, 1, [data])

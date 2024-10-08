@@ -1,12 +1,12 @@
 import tkinter as tk
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Int16, Bool
+from std_msgs.msg import String, Bool
 
 class Int16Publisher(Node):
     def __init__(self):
         super().__init__('int16_publisher_node')
-        self.int_publisher = self.create_publisher(Int16, '/rcs/rail_refpos', 10)
+        self.pos_publisher = self.create_publisher(String, '/rcs/rail_refpos', 10)
         self.emg_publisher = self.create_publisher(Bool, '/rcs/rail_emg', 10)
         self.cali_publisher = self.create_publisher(Bool, '/rcs/rail_calib',10)
 
@@ -48,12 +48,12 @@ class Int16Publisher(Node):
 
     def publish_value(self):
         try:
-            int_value = Int16()
-            int_value.data = int(self.int_entry.get())  # 입력된 값을 Int16로 변환
-            self.int_publisher.publish(int_value)  # 메시지 퍼블리시
-            print(f"퍼블리시된 값: {int_value.data}")  # 콘솔에 출력
+            string_data = String()
+            string_data.data = str(self.int_entry.get())  # 입력된 값을 Int16로 변환
+            self.pos_publisher.publish(string_data)  # 메시지 퍼블리시
+            print(f"퍼블리시된 값: {string_data.data}")  # 콘솔에 출력
         except ValueError:
-            print("유효한 정수를 입력하세요.")
+            print("유효한 값 입력하세요.")
 
     def toggle_warning(self):
         self.warning_active = not self.warning_active
