@@ -47,20 +47,26 @@ class MotorController(Node):
         
         self.State = STATE.CALIBRATION
 
+
+
         # ROS 토픽 구독 및 퍼블리셔 설정
         self.pos_subscription = self.create_subscription(String, '/rcs/rail_refpos', self.pos_callback, 10)
         self.emg_subscription = self.create_subscription(Bool, '/rcs/rail_emg', self.emg_callback, 10)
         self.cali_subscription = self.create_subscription(Bool, '/rcs/rail_calib', self.cali_callback, 10)
         self.limit_subscription = self.create_subscription(Int16MultiArray, '/rcs/limit_sensor', self.limit_callback, 10)
 
-        # 시각화를 위한 퍼블리셔 설정
-        self.raw_velocity_publisher = self.create_publisher(Float32, '/motor/raw_velocity', 10)
-        self.filtered_velocity_publisher = self.create_publisher(Float32, '/motor/filtered_velocity', 10)
-        self.angle_publisher = self.create_publisher(Float32, '/motor/angle', 10)
-        self.desired_angle_publisher = self.create_publisher(Float32, '/motor/desired_angle', 10)
-        self.current_publisher = self.create_publisher(Float32, 'motor/current', 10)
+
+
+        
+        self.publisher_count = 0
         self.position_publisher = self.create_publisher(String, '/rcs/rail_actpos', 10)
         self.status_publisher = self.create_publisher(Bool, '/rcs/status', 10)
+        # 시각화를 위한 퍼블리셔 설정
+        # self.raw_velocity_publisher = self.create_publisher(Float32, '/motor/raw_velocity', 10)
+        # self.filtered_velocity_publisher = self.create_publisher(Float32, '/motor/filtered_velocity', 10)
+        # self.angle_publisher = self.create_publisher(Float32, '/motor/angle', 10)
+        # self.desired_angle_publisher = self.create_publisher(Float32, '/motor/desired_angle', 10)
+        # self.current_publisher = self.create_publisher(Float32, 'motor/current', 10)
         
         self.previous_time = time.time()
 
@@ -142,8 +148,9 @@ class MotorController(Node):
         except:
             return None, None, None
     
-
     def control_loop(self):
+        
+        self.publisher_count += 1
         """ 제어 루프를 실행하는 함수 """
         current_time = time.time()
         dt = current_time - self.previous_time
@@ -169,7 +176,7 @@ class MotorController(Node):
         self.current_angle += self.filtered_velocity * dt  
 
         # error값이 0.1 미만일 때 모터를 멈춤
-        if(abs(self.current_angle - self.desired_angle) < 0.1):
+        if(abs(self.current_angle - self.desired_angle) < 5):
             self.State = STATE.STEADYSTATE
 
         """
@@ -186,18 +193,23 @@ class MotorController(Node):
             print("LIMIT SENSOR DETECTED")
             self.write_digital(1)
             self.write_analog(0)
+            self.State = STATE.EMERGENCY
+
         else:
             if(self.State == STATE.STEADYSTATE):
                 self.write_analog(0)
-                self.status_publisher.publish(Bool(data = True))
+                
+                if(self.publisher_count > 10):
+                    self.status_publisher.publish(Bool(data = True))
                 print("STEADYSTATE")
                 
             elif(self.State == STATE.STABLE):
+                print("PROCESS")
                 self.write_digital(0)
                 self.status_publisher.publish(Bool(data = False))
                 voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
                 voltage_output = max(-10, min(10, voltage_output)) # 출력 전압 제한
-                self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
+                # self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
                 self.write_analog(voltage_output)
 
             elif(self.State == STATE.EMERGENCY):
@@ -207,14 +219,20 @@ class MotorController(Node):
         
 
         current_position = self.current_angle * 0.4523 / 720    # unit : [m]
-        self.position_publisher.publish(String(data = str(current_position)))
+
+
+        if(self.publisher_count > 10):
+            self.position_publisher.publish(String(data = str(current_position)))
+            self.publisher_count = 0
+
+        print(current_position)
 
         # 퍼블리시
-        self.raw_velocity_publisher.publish(Float32(data=raw_velocity))
-        self.filtered_velocity_publisher.publish(Float32(data=float(self.filtered_velocity)))
-        self.angle_publisher.publish(Float32(data=float(self.current_angle)))
-        self.desired_angle_publisher.publish(Float32(data=float(self.desired_angle)))
-        self.current_publisher.publish(Float32(data=float(current)))
+        # self.raw_velocity_publisher.publish(Float32(data=raw_velocity))
+        # self.filtered_velocity_publisher.publish(Float32(data=float(self.filtered_velocity)))
+        # self.angle_publisher.publish(Float32(data=float(self.current_angle)))
+        # self.desired_angle_publisher.publish(Float32(data=float(self.desired_angle)))
+        # self.current_publisher.publish(Float32(data=float(current)))
 
 def main(args=None):
     """ ROS 2 노드를 초기화하고 실행하는 메인 함수 """

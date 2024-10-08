@@ -36,6 +36,7 @@ def main(args=None):
     try:
         while rclpy.ok():
             arduino_reader.read_data()
+            time.sleep(0.1)
     except KeyboardInterrupt:
         pass
     finally:
