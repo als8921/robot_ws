@@ -98,9 +98,10 @@ class MotorController(Node):
     
     def pos_callback(self, msg):
         try:
-            self.State = STATE.STABLE
-            self.desired_position = float(msg.data)                            # unit : [m]
-            self.desired_angle = self.desired_position * 720 / 0.4523   # unit : [degree]
+            if(self.State != STATE.STABLE):
+                self.State = STATE.STABLE
+                self.desired_position = float(msg.data)                            # unit : [m]
+                self.desired_angle = self.desired_position * 720 / 0.4523   # unit : [degree]
         except:
             pass
     
@@ -180,7 +181,6 @@ class MotorController(Node):
         """
         if(self.Limit_O == 1):
             print("CENTER DETECTED")
-            self.current_angle = 0
 
         if(self.Limit_L == 1 or self.Limit_R == 1):
             print("LIMIT SENSOR DETECTED")
