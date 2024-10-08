@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             'control = rail_control.RailController:main',
             'command = rail_control.RailPositionPublisher:main'
+            'limit = rail_control.LimitSensor:main'
         ],
     },
 )

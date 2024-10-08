@@ -4,7 +4,7 @@ import time
 import rclpy
 from enum import Enum
 from rclpy.node import Node
-from std_msgs.msg import Int16, Float32, Bool, String
+from std_msgs.msg import Int16, Float32, Bool, String, Int16MultiArray
 from Automation.BDaq import *
 from Automation.BDaq.InstantAoCtrl import InstantAoCtrl
 from Automation.BDaq.InstantAiCtrl import InstantAiCtrl
@@ -38,6 +38,7 @@ class MotorController(Node):
         self.alpha = 0.5            # LPF 필터 계수 (0 < alpha < 1)
         self.offset = 0
         
+        self.Limit_L, self.Limit_O, self.Limit_R = 0, 0, 0
         # PID 제어 변수
         self.kp = 0.2
         self.kd = 0.025
@@ -50,6 +51,7 @@ class MotorController(Node):
         self.pos_subscription = self.create_subscription(Int16, '/rcs/rail_refpos', self.pos_callback, 10)
         self.emg_subscription = self.create_subscription(Bool, '/rcs/rail_emg', self.emg_callback, 10)
         self.cali_subscription = self.create_subscription(Bool, '/rcs/rail_calib', self.cali_callback, 10)
+        self.limit_subscription = self.create_subscription(Int16MultiArray, '/rcs/limit_sensor', self.limit_callback, 10)
 
         # 시각화를 위한 퍼블리셔 설정
         self.raw_velocity_publisher = self.create_publisher(Float32, '/motor/raw_velocity', 10)
@@ -79,6 +81,9 @@ class MotorController(Node):
             sample_sum += raw_velocity
             time.sleep(TIMER_PERIOD)
         return sample_sum / sampling_number
+
+    def limit_callback(self, msg):
+        self.Limit_L, self.Limit_O, self.Limit_R = msg.data[0], msg.data[1], msg.data[2] 
 
     def cali_callback(self, msg):
         print(msg.data, "Calibration Subscribed")
@@ -161,11 +166,6 @@ class MotorController(Node):
         if(abs(self.current_angle - self.desired_angle) < 0.1):
             self.State = STATE.STEADYSTATE
 
-        # 리밋 센서 데이터 읽기
-        Limit_L, Limit_O, Limit_R = self.read_arduino_data()
-        if Limit_L is not None:
-            print(f"Arduino States - Left: {Limit_L}, Center: {Limit_O}, Right: {Limit_R}")
-
         """
             STATE에 따른 작업
             ---
@@ -173,10 +173,10 @@ class MotorController(Node):
             STABLE      : 안정상태로 PID제어 수행
             EMERGENCY   : /rcs/rail_emg 토픽이 True로 들어온 상태로 정지
         """
-        if(Limit_O == 1):
+        if(self.Limit_O == 1):
             print("CENTER DETECTED")
 
-        if(Limit_L == 1 or Limit_R == 1):
+        if(self.Limit_L == 1 or self.Limit_R == 1):
             print("LIMIT SENSOR DETECTED")
             self.write_digital(1)
             self.write_analog(0)
