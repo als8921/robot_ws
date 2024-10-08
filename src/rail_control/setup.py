@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'daq'
+package_name = 'rail_control'
 
 setup(
     name=package_name,
@@ -20,6 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'control = rail_control.RailController:main',
+            'command = rail_control.RailPositionPublisher:main'
         ],
     },
 )
