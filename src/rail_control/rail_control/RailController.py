@@ -175,6 +175,7 @@ class MotorController(Node):
         """
         if(self.Limit_O == 1):
             print("CENTER DETECTED")
+            self.current_angle = 0
 
         if(self.Limit_L == 1 or self.Limit_R == 1):
             print("LIMIT SENSOR DETECTED")
