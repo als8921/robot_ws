@@ -7,10 +7,14 @@ from Automation.BDaq import *
 from Automation.BDaq.InstantAoCtrl import InstantAoCtrl
 from Automation.BDaq.InstantAiCtrl import InstantAiCtrl
 from Automation.BDaq.InstantDoCtrl import InstantDoCtrl
+import serial
 
 # 초기 파라미터 설정
+ARDUINO_PORT = "/dev/ttyACM0"
+ARDUINO_BAUDRATE = 9600
 DEVICE_DESCRIPTION = "USB-4716,BID#0"
 TIMER_PERIOD = 0.01
+
 
 class STATE(Enum):
     STABLE = "STABLE"
@@ -41,6 +45,7 @@ class MotorController(Node):
         
         self.State = STATE.CALIBRATION
 
+        # ROS 토픽 구독 및 퍼블리셔 설정
         self.pos_subscription = self.create_subscription(Int16, '/rcs/rail_refpos', self.pos_callback, 10)
         self.emg_subscription = self.create_subscription(Bool, '/rcs/rail_emg', self.emg_callback, 10)
         self.cali_subscription = self.create_subscription(Bool, '/rcs/rail_calib', self.cali_callback, 10)
@@ -50,13 +55,14 @@ class MotorController(Node):
         self.filtered_velocity_publisher = self.create_publisher(Float32, '/motor/filtered_velocity', 10)
         self.angle_publisher = self.create_publisher(Float32, '/motor/angle', 10)
         self.desired_angle_publisher = self.create_publisher(Float32, '/motor/desired_angle', 10)
-
-
         self.current_publisher = self.create_publisher(Float32, 'motor/current', 10)
         self.position_publisher = self.create_publisher(String, '/rcs/rail_actpos', 10)
         self.status_publisher = self.create_publisher(Bool, '/rcs/status', 10)
         
         self.previous_time = time.time()
+
+        self.ser = serial.Serial(ARDUINO_PORT, ARDUINO_BAUDRATE)
+
         # ROS 타이머 설정
         self.timer = self.create_timer(TIMER_PERIOD, self.control_loop)
 
@@ -77,7 +83,7 @@ class MotorController(Node):
         print(msg.data, "Calibration Subscribed")
 
     def emg_callback(self, msg):
-        if(msg.data):
+        if msg.data:
             self.State = STATE.EMERGENCY
         else:
             self.State = STATE.STABLE
@@ -114,6 +120,17 @@ class MotorController(Node):
         self.previous_error = pos_error
         return output
 
+    def read_arduino_data(self):
+        """ 아두이노에서 데이터를 읽는 함수 """
+        try:
+            if self.ser.readable():
+                data = self.ser.readline().decode('utf-8').rstrip()  # 데이터 읽기
+                stateL, stateO, stateR = map(int, data.split(','))
+                return stateL, stateO, stateR
+        except:
+            return None, None, None
+    
+
     def control_loop(self):
         """ 제어 루프를 실행하는 함수 """
         current_time = time.time()
@@ -125,12 +142,10 @@ class MotorController(Node):
             self.offset = self.calibration(5)
             self.State = STATE.STABLE
 
-
-
-
-
-
-
+        # 아두이노 데이터 읽기
+        stateL, stateO, stateR = self.read_arduino_data()
+        if stateL is not None:
+            print(f"Arduino States - Left: {stateL}, Center: {stateO}, Right: {stateR}")
 
 
         analog_input = self.read_analog()
