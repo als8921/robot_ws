@@ -24,6 +24,7 @@ class STATE(Enum):
     HOMING = "HOMING"
     CALIBRATION = "CALIBRATION"
     STEADYSTATE = "STEADYSTATE"
+    LIMIT = "LIMIT"
 
 class MotorController(Node):
     def __init__(self):
@@ -190,32 +191,32 @@ class MotorController(Node):
             print("CENTER DETECTED")
 
         if(self.Limit_L == 1 or self.Limit_R == 1):
-            print("LIMIT SENSOR DETECTED")
+            self.State = STATE.LIMIT
+
+
+        if(self.State == STATE.LIMIT):
+            raise Exception("LIMIT SENSOR DETECTED")
+        
+        elif(self.State == STATE.STEADYSTATE):
+            print("STEADYSTATE")
+            self.write_analog(0)
+            
+            if(self.publisher_count > 10):
+                self.status_publisher.publish(Bool(data = True))
+            
+        elif(self.State == STATE.STABLE):
+            print("PROCESS")
+            self.write_digital(0)
+            self.status_publisher.publish(Bool(data = False))
+            voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
+            voltage_output = max(-10, min(10, voltage_output)) # 출력 전압 제한
+            # self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
+            self.write_analog(voltage_output)
+
+        elif(self.State == STATE.EMERGENCY):
+            print("EMERGENCY")
             self.write_digital(1)
             self.write_analog(0)
-            self.State = STATE.EMERGENCY
-
-        else:
-            if(self.State == STATE.STEADYSTATE):
-                self.write_analog(0)
-                
-                if(self.publisher_count > 10):
-                    self.status_publisher.publish(Bool(data = True))
-                print("STEADYSTATE")
-                
-            elif(self.State == STATE.STABLE):
-                print("PROCESS")
-                self.write_digital(0)
-                self.status_publisher.publish(Bool(data = False))
-                voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
-                voltage_output = max(-10, min(10, voltage_output)) # 출력 전압 제한
-                # self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
-                self.write_analog(voltage_output)
-
-            elif(self.State == STATE.EMERGENCY):
-                print("EMERGENCY")
-                self.write_digital(1)
-                self.write_analog(0)
         
 
         current_position = self.current_angle * 0.4523 / 720    # unit : [m]
