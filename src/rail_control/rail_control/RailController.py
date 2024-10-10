@@ -18,11 +18,10 @@ TIMER_PERIOD = 0.01
 POSITION_FILE = os.path.dirname(__file__)+"/current_position.txt"
 
 class STATE(Enum):
-    PROCESS = "PROCESS"
-    EMERGENCY = "EMERGENCY"
-    HOMING = "HOMING"
     CALIBRATION = "CALIBRATION"
+    PROCESS = "PROCESS"
     STEADYSTATE = "STEADYSTATE"
+    EMERGENCY = "EMERGENCY"
     LIMIT = "LIMIT"
 
 class MotorController(Node):
@@ -145,7 +144,7 @@ class MotorController(Node):
         if msg.data:
             self.State = STATE.EMERGENCY
         else:
-            self.State = STATE.PROCESS
+            self.State = STATE.STEADYSTATE
     
     def pos_callback(self, msg):
         """ 목표 위치 수신 콜백 함수
@@ -153,7 +152,7 @@ class MotorController(Node):
             msg (String): 목표 위치 (단위: 미터)
         """
         try:
-            if(self.State != STATE.PROCESS):
+            if(self.State == STATE.STEADYSTATE):
                 self.State = STATE.PROCESS
                 self.desired_position = float(msg.data)                            # unit : [m]
                 self.desired_angle = self.desired_position * 720 / 0.4523   # unit : [degree]
@@ -225,7 +224,7 @@ class MotorController(Node):
         if(self.State == STATE.CALIBRATION):
             self.write_analog(0)
             self.offset = self.calibration(5)
-            self.State = STATE.PROCESS
+            self.State = STATE.STEADYSTATE
 
         
         if(self.State == STATE.LIMIT):
