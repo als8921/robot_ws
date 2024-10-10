@@ -34,6 +34,8 @@ class MotorController(Node):
         self.instant_ai = InstantAiCtrl(DEVICE_DESCRIPTION)
         self.instant_ao.channels[0].valueRange = ValueRange.V_Neg10To10
         
+
+        self.current_position = 0
         self.current_angle = 0  # 현재 각도 초기화
         self.filtered_velocity = 0  # 필터링된 각속도 초기화
         self.alpha = 0.5            # LPF 필터 계수 (0 < alpha < 1)
@@ -70,9 +72,6 @@ class MotorController(Node):
         # self.current_publisher = self.create_publisher(Float32, 'motor/current', 10)
         
         self.previous_time = time.time()
-
-        self.ser = serial.Serial(ARDUINO_PORT, ARDUINO_BAUDRATE)
-
         # ROS 타이머 설정
         self.timer = self.create_timer(TIMER_PERIOD, self.control_loop)
 
