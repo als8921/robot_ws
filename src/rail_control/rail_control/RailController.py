@@ -227,12 +227,11 @@ class MotorController(Node):
             self.offset = self.calibration(5)
             self.State = STATE.PROCESS
 
-        # 리밋센서 인식 부분
-        if(self.Limit_O == 1):
-            print("CENTER DETECTED")
+        
+        if(self.State == STATE.LIMIT):
+            raise Exception("LIMIT SENSOR DETECTED")
 
-        if(self.Limit_L == 1 or self.Limit_R == 1):
-            self.State = STATE.LIMIT
+
 
         analog_input = self.read_analog()
         current = analog_input[1] * 5.9 / 4 # Analog to Current     -4V ~ 4V    :   -5.9A ~ 5.9A
@@ -271,10 +270,7 @@ class MotorController(Node):
             EMERGENCY   : /rcs/rail_emg 토픽이 True로 들어온 상태로 정지
         """
 
-        if(self.State == STATE.LIMIT):
-            raise Exception("LIMIT SENSOR DETECTED")
-        
-        elif(self.State == STATE.STEADYSTATE):
+        if(self.State == STATE.STEADYSTATE):
             print("STEADYSTATE")
             self.write_analog(0)
             
@@ -314,6 +310,7 @@ def main(args=None):
         print("Paused:", e)
 
     finally:
+        controller.write_digital(1) 
         controller.write_analog(0)
         controller.destroy_node()
         rclpy.shutdown()
