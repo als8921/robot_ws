@@ -10,7 +10,7 @@ class ArduinoReader(Node):
         self.publisher = self.create_publisher(Int16MultiArray, '/rcs/limit_sensor', 10)
 
         # 아두이노 연결 설정
-        self.port = '/dev/ttyACM0'  # 포트 설정
+        self.port = '/dev/ttyACM1'  # 포트 설정
         self.baudrate = 9600
         self.ser = serial.Serial(self.port, self.baudrate)
 
@@ -21,6 +21,7 @@ class ArduinoReader(Node):
         try:
             if self.ser.readable():
                 data = self.ser.readline().decode('utf-8').rstrip()  # 데이터 읽기
+                print(data)
                 stateL, stateO, stateR = map(int, data.split(','))
 
                 # ROS2 메시지 생성 및 퍼블리시
@@ -34,11 +35,12 @@ def main(args=None):
     rclpy.init(args=args)
     arduino_reader = ArduinoReader()
     try:
-        while rclpy.ok():
+        while(1):
             arduino_reader.read_data()
-            time.sleep(0.1)
-    except KeyboardInterrupt:
-        pass
+    
+    except Exception as e:
+        print("Exception:", e)
+        
     finally:
         arduino_reader.destroy_node()
         rclpy.shutdown()
