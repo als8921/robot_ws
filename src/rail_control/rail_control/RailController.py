@@ -9,17 +9,16 @@ from Automation.BDaq import *
 from Automation.BDaq.InstantAoCtrl import InstantAoCtrl
 from Automation.BDaq.InstantAiCtrl import InstantAiCtrl
 from Automation.BDaq.InstantDoCtrl import InstantDoCtrl
-import serial
 
 # 초기 파라미터 설정
 ARDUINO_PORT = "/dev/ttyACM0"
 ARDUINO_BAUDRATE = 9600
 DEVICE_DESCRIPTION = "USB-4716,BID#0"
 TIMER_PERIOD = 0.01
-
+POSITION_FILE = os.path.dirname(__file__)+"/current_position.txt"
 
 class STATE(Enum):
-    STABLE = "STABLE"
+    PROCESS = "PROCESS"
     EMERGENCY = "EMERGENCY"
     HOMING = "HOMING"
     CALIBRATION = "CALIBRATION"
@@ -35,8 +34,9 @@ class MotorController(Node):
         self.instant_ao.channels[0].valueRange = ValueRange.V_Neg10To10
         
 
-        self.current_position = 0
-        self.current_angle = 0  # 현재 각도 초기화
+        self.current_position = self.load_current_position()
+        self.current_angle = self.current_position * 720 / 0.4523  # 현재 각도 초기화
+
         self.filtered_velocity = 0  # 필터링된 각속도 초기화
         self.alpha = 0.5            # LPF 필터 계수 (0 < alpha < 1)
         self.offset = 0
@@ -75,8 +75,37 @@ class MotorController(Node):
         # ROS 타이머 설정
         self.timer = self.create_timer(TIMER_PERIOD, self.control_loop)
 
+
+    def load_current_position(self):
+        """ 파일에서 현재 위치를 불러오는 함수
+        Returns:
+            float: 현재 위치 (단위: 미터). 파일이 없거나 읽을 수 없으면 0 반환.
+        """
+        try:
+            with open(POSITION_FILE, 'r') as f:
+                position = float(f.read().strip())
+                return position
+        except FileNotFoundError:
+            return 0
+        except ValueError:
+            return 0
+
+    def save_current_position(self, position):
+        """ 파일에 현재 위치를 저장하는 함수
+        Args:
+            position (float): 저장할 현재 위치 (단위: 미터)
+        """
+        with open(POSITION_FILE, 'w') as f:
+            f.write(str(position))
+
+
     def calibration(self, calibration_time):
-        """ 에러의 Offset을 얻기 위한 Calibration """
+        """ 에러의 Offset을 얻기 위한 Calibration 함수
+        Args:
+            calibration_time (float): 보정 시간 (초)
+        Returns:
+            float: 보정된 오프셋 값
+        """
         print("Calibration Start")
         print("Do not move the motor.")
 
@@ -89,69 +118,106 @@ class MotorController(Node):
         return sample_sum / sampling_number
 
     def limit_callback(self, msg):
+        """ 리밋 센서 데이터 수신 콜백 함수
+        Args:
+            msg (Int16MultiArray): 리밋 센서 데이터
+        """
         self.Limit_L, self.Limit_O, self.Limit_R = msg.data[0], msg.data[1], msg.data[2] 
+        
+        if(self.Limit_O == 1):
+            print("CENTER DETECTED")
+
+        if(self.Limit_L == 1 or self.Limit_R == 1):
+            self.State = STATE.LIMIT
 
     def cali_callback(self, msg):
+        """ 보정 명령 수신 콜백 함수
+        Args:
+            msg (Bool): 보정 명령 여부
+        """
         print(msg.data, "Calibration Subscribed")
-        self.State = STATE.STABLE
-        self.desired_angle = 0    
 
     def emg_callback(self, msg):
+        """ 비상 정지 명령 수신 콜백 함수
+        Args:
+            msg (Bool): 비상 정지 여부
+        """
         if msg.data:
             self.State = STATE.EMERGENCY
         else:
-            self.State = STATE.STABLE
+            self.State = STATE.PROCESS
     
     def pos_callback(self, msg):
+        """ 목표 위치 수신 콜백 함수
+        Args:
+            msg (String): 목표 위치 (단위: 미터)
+        """
         try:
-            if(self.State != STATE.STABLE):
-                self.State = STATE.STABLE
+            if(self.State != STATE.PROCESS):
+                self.State = STATE.PROCESS
                 self.desired_position = float(msg.data)                            # unit : [m]
                 self.desired_angle = self.desired_position * 720 / 0.4523   # unit : [degree]
         except:
             pass
     
     def write_digital(self, data):
+        """ 디지털 출력 설정 함수
+        Args:
+            data (int): 출력할 데이터 (0 또는 1)
+                        HIGH 신호를 보내면 모터 비상 정지
+                        LOW 신호를 보내면 모터 정상 작동
+        """
         self.instant_do.writeAny(0, 1, [data])
         
     def read_analog(self):
-        """ 아날로그 입력을 읽는 함수 """
+        """ 아날로그 입력을 읽는 함수
+        Returns:
+            list: 아날로그 데이터 (리스트 형태)
+        """
         ai_channel = 0
         _, analog_data = self.instant_ai.readDataF64(ai_channel, 2)
         return analog_data
     
     def write_analog(self, voltage):
-        """ 아날로그 출력을 설정하는 함수 """
+        """ 아날로그 출력을 설정하는 함수
+        Args:
+            voltage (float): 설정할 전압 (단위: V)
+        """
         ao_channel = 0
         voltage = max(-10, min(10, voltage))  # 전압 제한
         self.instant_ao.writeAny(ao_channel, 1, None, [-voltage])
 
     def calculate_velocity(self, voltage):
-        """ 주어진 전압에 따라 각속도를 계산하는 함수 """
+        """ 주어진 전압에 따라 각속도를 계산하는 함수
+        Args:
+            voltage (float): 입력 전압 (단위: V)
+        Returns:
+            float: 계산된 각속도 (단위: deg/s)
+        """
         return -voltage * 180  # 각속도 계산 (deg/s)
 
-    def pid_control(self, desired_position, current_position, dt):
-        """ PID 제어 알고리즘을 사용하여 출력 값을 계산하는 함수 """
-        pos_error = desired_position - current_position
+    def pid_control(self, pos_d, pos, dt):
+        """ PID 제어 알고리즘을 사용하여 출력 값을 계산하는 함수
+        Args:
+            pos_d (float): 목표 위치
+            pos (float): 현재 위치
+            dt (float): 시간 간격 (초)
+
+        Returns:
+            float: PID 제어에 의해 계산된 출력 값
+        """
+
+        pos_error = pos_d - pos
         pos_derivative = (pos_error - self.previous_error) / dt
         output = self.kp * pos_error + self.kd * pos_derivative  # i 제어는 사용하지 않음
         self.previous_error = pos_error
         return output
-
-    def read_arduino_data(self):
-        """ 아두이노에서 데이터를 읽는 함수 """
-        try:
-            if self.ser.readable():
-                data = self.ser.readline().decode('utf-8').rstrip()  # 데이터 읽기
-                stateL, stateO, stateR = map(int, data.split(','))
-                return stateL, stateO, stateR
-        except:
-            return None, None, None
     
     def control_loop(self):
+
+        """ 제어 루프를 실행하는 함수 """
         
         self.publisher_count += 1
-        """ 제어 루프를 실행하는 함수 """
         current_time = time.time()
         dt = current_time - self.previous_time
         self.previous_time = current_time
@@ -159,9 +225,14 @@ class MotorController(Node):
         if(self.State == STATE.CALIBRATION):
             self.write_analog(0)
             self.offset = self.calibration(5)
-            self.State = STATE.STABLE
+            self.State = STATE.PROCESS
 
+        # 리밋센서 인식 부분
+        if(self.Limit_O == 1):
+            print("CENTER DETECTED")
 
+        if(self.Limit_L == 1 or self.Limit_R == 1):
+            self.State = STATE.LIMIT
 
         analog_input = self.read_analog()
         current = analog_input[1] * 5.9 / 4 # Analog to Current     -4V ~ 4V    :   -5.9A ~ 5.9A
@@ -175,23 +246,30 @@ class MotorController(Node):
             self.filtered_velocity = 0.0
         self.current_angle += self.filtered_velocity * dt  
 
-        # error값이 0.1 미만일 때 모터를 멈춤
-        if(abs(self.current_angle - self.desired_angle) < 5):
+
+
+        # ANGLE_ERROR_BOUNDARY 각도 안으로 진입하면 STEADYSTATE 상태
+        ANGLE_ERROR_BOUNDARY = 5
+        if(abs(self.current_angle - self.desired_angle) < ANGLE_ERROR_BOUNDARY):
             self.State = STATE.STEADYSTATE
+
+        # 모터의 회전 각도로 레일의 위치 변환
+        self.current_position = self.current_angle * 0.4523 / 720    # unit : [m]
+
+
+        if(self.publisher_count > 10):
+            self.position_publisher.publish(String(data = str(self.current_position)))
+            self.save_current_position(self.current_position)
+            self.publisher_count = 0
 
         """
             STATE에 따른 작업
             ---
+            PROCESS     : 안정상태로 PID제어 수행
+            LIMIT       : 리밋센서에 인식된 상태로 프로세스 종료
             STEADYSTATE : 정상상태로 다음 명령이 들어올 때까지 모터를 정지
-            STABLE      : 안정상태로 PID제어 수행
             EMERGENCY   : /rcs/rail_emg 토픽이 True로 들어온 상태로 정지
         """
-        if(self.Limit_O == 1):
-            print("CENTER DETECTED")
-
-        if(self.Limit_L == 1 or self.Limit_R == 1):
-            self.State = STATE.LIMIT
-
 
         if(self.State == STATE.LIMIT):
             raise Exception("LIMIT SENSOR DETECTED")
@@ -203,29 +281,20 @@ class MotorController(Node):
             if(self.publisher_count > 10):
                 self.status_publisher.publish(Bool(data = True))
             
-        elif(self.State == STATE.STABLE):
+        elif(self.State == STATE.PROCESS):
             print("PROCESS")
-            self.write_digital(0)
+            self.write_digital(0)   # 디지털 LOW 신호를 보내면 모터 정상 작동
             self.status_publisher.publish(Bool(data = False))
             voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
             voltage_output = max(-10, min(10, voltage_output)) # 출력 전압 제한
-            # self.get_logger().info(f"각도: {self.current_angle:.2f}, 목표: {self.desired_angle}, 필터링된 각속도: {self.filtered_velocity:.2f}, 전압: {voltage_output:.2f}")
+            self.get_logger().info(f"Pos: {self.current_position:.2f}, Desired_Pos: {self.desired_position}")
             self.write_analog(voltage_output)
 
         elif(self.State == STATE.EMERGENCY):
             print("EMERGENCY")
-            self.write_digital(1)
+            self.write_digital(1)   # 디지털 HIGH 신호를 보내면 모터 비상 정지
             self.write_analog(0)
         
-
-        current_position = self.current_angle * 0.4523 / 720    # unit : [m]
-
-
-        if(self.publisher_count > 10):
-            self.position_publisher.publish(String(data = str(current_position)))
-            self.publisher_count = 0
-
-        print(current_position)
 
         # 퍼블리시
         # self.raw_velocity_publisher.publish(Float32(data=raw_velocity))
@@ -236,10 +305,6 @@ class MotorController(Node):
 
 def main(args=None):
     """ ROS 2 노드를 초기화하고 실행하는 메인 함수 """
-    rclpy.init(args=args)
-    controller = MotorController()
-    rclpy.spin(controller)
-
     try:
         rclpy.init(args=args)
         controller = MotorController()
