@@ -34,7 +34,7 @@ class MotorController(Node):
         
 
         self.current_position = self.load_current_position()
-        self.current_angle = self.current_position * 720 / 0.4523  # 현재 각도 초기화
+        self.current_angle = self.position_to_angle(self.current_position)  # 현재 각도 초기화
 
         self.filtered_velocity = 0  # 필터링된 각속도 초기화
         self.alpha = 0.5            # LPF 필터 계수 (0 < alpha < 1)
@@ -46,7 +46,8 @@ class MotorController(Node):
         self.kd = 0.025
         self.previous_error = 0
         self.desired_angle = 0  # 목표 각도 초기화
-        
+        self.error = 0
+
         self.State = STATE.CALIBRATION
 
 
@@ -124,6 +125,7 @@ class MotorController(Node):
         self.Limit_L, self.Limit_O, self.Limit_R = msg.data[0], msg.data[1], msg.data[2] 
         
         if(self.Limit_O == 1):
+            self.error = self.current_position
             print("CENTER DETECTED")
 
         if(self.Limit_L == 1 or self.Limit_R == 1):
@@ -154,8 +156,8 @@ class MotorController(Node):
         try:
             if(self.State == STATE.STEADYSTATE):
                 self.State = STATE.PROCESS
-                self.desired_position = float(msg.data)                            # unit : [m]
-                self.desired_angle = self.desired_position * 720 / 0.4523   # unit : [degree]
+                self.desired_position = float(msg.data)                             # unit : [m]
+                self.desired_angle = self.position_to_angle(self.desired_position)  # unit : [degree]
         except:
             pass
     
@@ -212,6 +214,14 @@ class MotorController(Node):
         self.previous_error = pos_error
         return output
     
+    def angle_to_position(self, theta):
+        pos = theta * 0.4523 / 720
+        return pos
+    
+    def position_to_angle(self, pos):
+        theta = pos * 720 / 0.4523
+        return theta
+    
     def control_loop(self):
 
         """ 제어 루프를 실행하는 함수 """
@@ -252,7 +262,7 @@ class MotorController(Node):
             self.State = STATE.STEADYSTATE
 
         # 모터의 회전 각도로 레일의 위치 변환
-        self.current_position = self.current_angle * 0.4523 / 720    # unit : [m]
+        self.current_position = self.angle_to_position(self.current_angle)    # unit : [m]
 
 
         if(self.publisher_count > 10):
@@ -270,6 +280,11 @@ class MotorController(Node):
         """
 
         if(self.State == STATE.STEADYSTATE):
+            if(self.error > 0.1):
+                self.current_position -= self.error
+                self.current_angle = self.position_to_angle(self.current_position)
+                print(f"error : {self.error}  영점 보정")
+                self.error = 0
             print("STEADYSTATE")
             self.write_analog(0)
             
