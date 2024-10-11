@@ -280,12 +280,12 @@ class MotorController(Node):
         """
 
         if(self.State == STATE.STEADYSTATE):
-            if(self.error > 0.1):
+            if(abs(self.error) > 0.1):
                 self.current_position -= self.error
                 self.current_angle = self.position_to_angle(self.current_position)
                 print(f"error : {self.error}  영점 보정")
                 self.error = 0
-            print("STEADYSTATE")
+            self.get_logger().info(f"[STEADYSTATE] - Pos: {self.current_position:.2f}")
             self.write_analog(0)
             
             if(self.publisher_count > 10):
@@ -297,11 +297,11 @@ class MotorController(Node):
             self.status_publisher.publish(Bool(data = False))
             voltage_output = self.pid_control(self.desired_angle, self.current_angle, dt)
             voltage_output = max(-10, min(10, voltage_output)) # 출력 전압 제한
-            self.get_logger().info(f"Pos: {self.current_position:.2f}, Desired_Pos: {self.desired_position}")
+            self.get_logger().info(f"[PROCESS] - Pos: {self.current_position:.2f}, Desired_Pos: {self.desired_position}")
             self.write_analog(voltage_output)
 
         elif(self.State == STATE.EMERGENCY):
-            print("EMERGENCY")
+            self.get_logger().info(f"[EMERGENCY] - Pos: {self.current_position:.2f}")
             self.write_digital(1)   # 디지털 HIGH 신호를 보내면 모터 비상 정지
             self.write_analog(0)
         
