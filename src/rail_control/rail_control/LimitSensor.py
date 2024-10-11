@@ -10,7 +10,7 @@ class ArduinoReader(Node):
         self.publisher = self.create_publisher(Int16MultiArray, '/rcs/limit_sensor', 10)
 
         # 아두이노 연결 설정
-        self.port = '/dev/ttyACM1'  # 포트 설정
+        self.port = '/dev/ttyACM0'  # 포트 설정
         self.baudrate = 9600
         self.ser = serial.Serial(self.port, self.baudrate)
 
