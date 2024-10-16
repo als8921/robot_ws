@@ -1,15 +1,18 @@
 void setup() {
   Serial.begin(19200);
+  Serial1.begin(19200);
 }
 
 void loop() {
-  // 데이터가 수신되었는지 확인합니다.
   if (Serial.available() > 0) {
-    // 수신된 데이터를 읽습니다.
     String receivedData = Serial.readStringUntil('\n');
+    Serial1.println(receivedData);
+  }
 
-    // 수신된 데이터를 시리얼 모니터에 출력합니다.
-//    Serial.print("Received: ");
-    Serial.println(receivedData);
+
+
+  if (Serial1.available() > 0) {
+    String serial1Data = Serial1.readStringUntil('\n');
+    Serial.println(serial1Data);
   }
 }
