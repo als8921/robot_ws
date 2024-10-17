@@ -94,6 +94,7 @@ class MD400:
         return self.create_packet(self.RMID, self.TMID, self.ID, 4, 1, 197)
     
     def get_alarm_log(self):
+        ## 작동 안함
         return self.create_packet(self.RMID, self.TMID, self.ID, 229, 1, 0)
 
     
