@@ -60,6 +60,30 @@ class MD400:
         # Position Control with Set Speed(PID 243)
         return self.create_packet(self.RMID, self.TMID, self.ID, 243, 4, *self.pos_to_bytes(pos))
 
+    def set_rpm(self, rpm):
+        """
+            지정된 rpm 값을 최대 rpm으로 설정
+            ===
+            Arg:
+                rpm [rpm]
+        """
+        byte_array = bytearray.fromhex(format(int(rpm), '04x'))
+        position_bytes = [byte for byte in reversed(byte_array)]
+
+        return self.create_packet(self.RMID, self.TMID, self.ID, 243, 2, *position_bytes)
+
+    def set_current_limit(self, current):
+        """
+            지정된 전류 값을 최대 전류로 설정
+            ===
+            Arg:
+                current [A]
+        """
+        byte_array = bytearray.fromhex(format(int(current*10), '04x'))
+        position_bytes = [byte for byte in reversed(byte_array)]
+
+        return self.create_packet(self.RMID, self.TMID, self.ID, 243, 2, *position_bytes)
+    
     ################################################################
     # Rx 데이터 요청
     ################################################################
@@ -80,7 +104,7 @@ class MD400:
     def bytes_to_pos(self, packet):
         """
             Rx로 받아온 패킷으로 현재 위치 값을 계산
-
+            ===
             Return:
                 현재 위치 값 [m]
         """
@@ -97,7 +121,7 @@ class MD400:
     def pos_to_bytes(self, pos):
         """
             미터 단위 명령을 받아 카운트로 변환 후 4바이트 값으로 변환
-
+            ===
             Return:
                 제어 위치 카운트 값 [4bytes]
         """
@@ -109,10 +133,3 @@ class MD400:
 
         return position_bytes
     ################################################################
-
-    def set_rpm(self):
-        return
-
-    def set_current_limit(self):
-        return
-    
