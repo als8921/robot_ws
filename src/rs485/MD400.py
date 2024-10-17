@@ -68,7 +68,7 @@ class MD400:
 
     def set_pos(self, pos):
         
-        return self.create_packet(self.RMID, self.TMID, self.ID, 219, *self.pos_to_bytes(pos), 0, 0)
+        return self.create_packet(self.RMID, self.TMID, self.ID, 219, 6, *self.pos_to_bytes(pos), 0, 0)
 
     def set_rpm(self):
         return
