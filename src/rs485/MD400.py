@@ -17,6 +17,9 @@ class MD400:
         packet_obj = struct.pack(fmt, RMID, TMID, ID, PARAMETER_ID, DATA_NUMBER, *DATA, check_sum)
         return packet_obj
     
+    ################################################################
+    # Tx 명령 전달
+    ################################################################
     def set_alarm_reset(self):
         """
             모든 에러 알람을 리셋
@@ -47,11 +50,18 @@ class MD400:
         """
         return self.create_packet(self.RMID, self.TMID, self.ID, 10, 1, 90)
 
+    ################################################################
+    # Rx 데이터 요청
+    ################################################################
     def get_pos(self):
         """
             현재 위치 값 요청 -> 값을 받아와야함
         """
         return self.create_packet(self.RMID, self.TMID, self.ID, 4, 1, 197)
+    
+    def get_alarm_log(self):
+        return self.create_packet(self.RMID, self.TMID, self.ID, 229, 1, 0)
+
     
 
     ################################################################
