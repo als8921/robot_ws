@@ -4,7 +4,7 @@ import serial
 import serial.rs485
 from MD400 import MD400
 
-SERIAL_PORT = '/dev/ttyACM0'
+SERIAL_PORT = '/dev/ttyUSB0'
 BAUDRATE = 19200
 
 class RS485Communication:
