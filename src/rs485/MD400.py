@@ -1,10 +1,10 @@
 import struct
 
 class MD400:
-    def __init__(self):
-        self.RMID = 0xb7
-        self.TMID = 0xb8
-        self.ID = 0x01
+    def __init__(self, rmid, tmid, id):
+        self.RMID = rmid
+        self.TMID = tmid
+        self.ID = id
 
     def create_packet(self, RMID, TMID, ID, PARAMETER_ID, DATA_NUMBER, *DATA):
         """
@@ -50,6 +50,16 @@ class MD400:
         """
         return self.create_packet(self.RMID, self.TMID, self.ID, 10, 1, 90)
 
+    def set_pos(self, pos):
+        """
+            지정된 카운트 값 위치로 모터 제어
+        """
+        # Position control with Target Speed(PID 219)
+        # return self.create_packet(self.RMID, self.TMID, self.ID, 219, 6, *self.pos_to_bytes(pos), 0, 0)
+
+        # Position Control with Set Speed(PID 243)
+        return self.create_packet(self.RMID, self.TMID, self.ID, 243, 4, *self.pos_to_bytes(pos))
+
     ################################################################
     # Rx 데이터 요청
     ################################################################
@@ -91,10 +101,6 @@ class MD400:
 
         return position_bytes
     ################################################################
-
-    def set_pos(self, pos):
-        
-        return self.create_packet(self.RMID, self.TMID, self.ID, 219, 6, *self.pos_to_bytes(pos), 0, 0)
 
     def set_rpm(self):
         return
