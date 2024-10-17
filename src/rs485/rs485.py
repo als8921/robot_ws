@@ -23,6 +23,9 @@ class RS485Communication:
                 response.extend(self.ser.read(additional_read))
                 print("Received:    ", *response)
 
+                if(response[3]==197):
+                    print("Position : ", md400.bytes_to_pos())
+
     def send_data(self, data):
         try:
             self.ser.write(data)
