@@ -7,18 +7,14 @@ class MD400:
         self.ID = 0x01
 
     def create_packet(self, RMID, TMID, ID, PARAMETER_ID, DATA_NUMBER, *DATA):
+        """
+            CheckSum 계산 후 패킷 생성 
+        """
         check_sum = RMID + TMID + ID + PARAMETER_ID + DATA_NUMBER + sum(DATA)
         check_sum = (256 - (check_sum % 256)) % 256
         fmt = 'B' * (len(DATA) + 6)
         
-        packet_obj = struct.pack(fmt, 
-            RMID,
-            TMID,
-            ID,
-            PARAMETER_ID,
-            DATA_NUMBER,
-            *DATA,
-            check_sum)
+        packet_obj = struct.pack(fmt, RMID, TMID, ID, PARAMETER_ID, DATA_NUMBER, *DATA, check_sum)
         return packet_obj
     
     def set_alarm_reset(self):
