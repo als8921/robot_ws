@@ -35,7 +35,10 @@ class RS485Communication:
             self.read_data()
             if(not self.complete):
                 packet = md400.set_alarm_reset()
-                packet = md400.set_pos(100)
+                # packet = md400.set_pos(100)
+                # packet = md400.stop()
+                # packet = md400.homing()
+                # packet = md400.get_pos()
                 self.complete = True
                 self.send_data(packet)
 
