@@ -1,5 +1,3 @@
-import time
-import struct
 import serial
 import serial.rs485
 from MD400 import MD400
@@ -18,7 +16,7 @@ class RS485Communication:
         if self.ser.readable():
             response = bytearray()
             response.extend(self.ser.read())
-            if(response and response[0] == md400.RMID):
+            if(response and response[0] == md400.TMID):
                 response.extend(self.ser.read(4))
                 additional_read = response[-1] + 1
                 response.extend(self.ser.read(additional_read))
