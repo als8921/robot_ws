@@ -80,6 +80,9 @@ class MD400:
     def bytes_to_pos(self, packet):
         """
             Rx로 받아온 패킷으로 현재 위치 값을 계산
+
+            Return:
+                현재 위치 값 [m]
         """
         
         hex_data = packet[5:5+packet[4]]
@@ -88,13 +91,19 @@ class MD400:
 
         decimal_value = int(hex_string, 16)
 
-        return decimal_value
+        pos = decimal_value * 0.000066
+        return pos
 
-    def pos_to_bytes(self, decimal_value):
+    def pos_to_bytes(self, pos):
         """
-            10진수 값을 받아 16진수 4바이트로 변환
+            미터 단위 명령을 받아 카운트로 변환 후 4바이트 값으로 변환
+
+            Return:
+                제어 위치 카운트 값 [4bytes]
         """
-        hex_string = format(decimal_value, '08x')
+        if pos > 2: pos = 2
+        count = int(pos / 0.000066)
+        hex_string = format(count, '08x')
         byte_array = bytearray.fromhex(hex_string)
         position_bytes = [byte for byte in reversed(byte_array)]
 
