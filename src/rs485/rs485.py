@@ -22,7 +22,6 @@ class RS485Communication:
                 additional_read = response[-1] + 1
                 response.extend(self.ser.read(additional_read))
                 print("Received:    ", *response)
-                self.complete = True
 
     def send_data(self, data):
         try:
@@ -37,8 +36,7 @@ class RS485Communication:
             if(not self.complete):
                 packet = md400.set_alarm_reset()
                 packet = md400.set_pos(100)
-                # packet = self.create_cmd_packet(183, 184, 1, 244, 4, 200, 0, 0, 0)
-                # packet = self.create_cmd_packet(1, 2, 3, 10, 4, 5, 6, 10, 0)
+                self.complete = True
                 self.send_data(packet)
 
     def close(self):
