@@ -50,13 +50,17 @@ if __name__ == '__main__':
     comm = RS485Communication()
     md400 = MD400(rmid = 0xb7, tmid = 0xb8, id = 0x01)
 
-    # comm.command_queue.append(md400.set_alarm_reset())
-    # comm.command_queue.append(md400.get_pos())
-    # comm.command_queue.append(md400.set_pos(0))
-    # comm.command_queue.append(md400.stop())
-    # comm.command_queue.append(md400.homing())
-    comm.command_queue.append(md400.set_rpm(2000))
-    comm.command_queue.append(md400.set_current_limit(10))
+    command = [
+        md400.set_alarm_reset(),
+        md400.get_pos(),
+        md400.set_pos(0),
+        md400.stop(),
+        md400.homing(),
+        md400.set_rpm(2000),
+        md400.set_current_limit(10)
+    ]
+
+    comm.command_queue.extend(command)
     try:
         comm.run()
     finally:
