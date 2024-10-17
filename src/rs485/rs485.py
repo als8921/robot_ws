@@ -1,9 +1,10 @@
+import time
 import serial
 import serial.rs485
 from MD400 import MD400
 from collections import deque
 
-SERIAL_PORT = '/dev/ttyACM0'
+SERIAL_PORT = '/dev/ttyUSB0'
 BAUDRATE = 19200
 
 class RS485Communication:
@@ -23,7 +24,7 @@ class RS485Communication:
                 print("Received:    ", *response)
 
                 if(response[3]==197):
-                    print("Position : ", md400.bytes_to_pos())
+                    print("Position : ", md400.bytes_to_pos(response))
 
     def send_data(self, data):
         try:
@@ -39,6 +40,7 @@ class RS485Communication:
                 packet = self.command_queue.popleft()
                 self.send_data(packet)
                 self.read_data()
+                time.sleep(0.5)
 
     def close(self):
         self.ser.close()
@@ -48,10 +50,11 @@ if __name__ == '__main__':
     comm = RS485Communication()
     md400 = MD400(rmid = 0xb7, tmid = 0xb8, id = 0x01)
 
-    comm.command_queue.append(md400.set_alarm_reset())
-    comm.command_queue.append(md400.stop())
+    # comm.command_queue.append(md400.set_alarm_reset())
+    # comm.command_queue.append(md400.get_pos())
+    # comm.command_queue.append(md400.set_pos(0))
+    # comm.command_queue.append(md400.stop())
     comm.command_queue.append(md400.homing())
-    comm.command_queue.append(md400.get_pos())
     try:
         comm.run()
     finally:

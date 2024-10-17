@@ -83,7 +83,6 @@ class MD400:
         """
         
         hex_data = packet[5:5+packet[4]]
-        print(hex_data)
 
         hex_string = ''.join(format(byte, '02x') for byte in reversed(hex_data))
 
