@@ -80,9 +80,9 @@ class MD400:
                 current [A]
         """
         byte_array = bytearray.fromhex(format(int(current*10), '04x'))
-        position_bytes = [byte for byte in reversed(byte_array)]
+        current_bytes = [byte for byte in reversed(byte_array)]
 
-        return self.create_packet(self.RMID, self.TMID, self.ID, 187, 2, *position_bytes)
+        return self.create_packet(self.RMID, self.TMID, self.ID, 187, 2, *current_bytes)
     
     ################################################################
     # Rx 데이터 요청
