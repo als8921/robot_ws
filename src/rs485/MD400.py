@@ -68,9 +68,9 @@ class MD400:
                 rpm [rpm]
         """
         byte_array = bytearray.fromhex(format(int(rpm), '04x'))
-        position_bytes = [byte for byte in reversed(byte_array)]
+        rpm_bytes = [byte for byte in reversed(byte_array)]
 
-        return self.create_packet(self.RMID, self.TMID, self.ID, 176, 2, *position_bytes)
+        return self.create_packet(self.RMID, self.TMID, self.ID, 176, 2, *rpm_bytes)
 
     def set_current_limit(self, current):
         """
