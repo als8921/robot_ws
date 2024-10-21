@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(ros_service)
+project(lift_srv)
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
@@ -32,10 +32,11 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "srv/Command.srv"
+  "srv/LiftCommand.srv"
  )
 
 ament_package()
