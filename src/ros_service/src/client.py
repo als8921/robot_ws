@@ -3,6 +3,8 @@
 import rclpy
 from rclpy.node import Node
 from example_interfaces.srv import AddTwoInts
+from ros_service.msg import Status
+from ros_service.srv import Command
 
 class AddTwoIntsClient(Node):
     def __init__(self):
