@@ -12,7 +12,7 @@ from rclpy.publisher import Publisher
 from std_msgs.msg import Float32  # Float32 메시지 타입 임포트
 from lift_srv.srv import LiftCommand  # 서비스 타입에 맞게 수정
 
-SERIAL_PORT = '/dev/ttyACM0'
+SERIAL_PORT = '/dev/ttyUSB0'
 BAUDRATE = 19200
 
 class Status(Enum):
@@ -38,6 +38,7 @@ class RS485Communication:
                 response.extend(self.ser.read(4))
                 additional_read = response[-1] + 1
                 response.extend(self.ser.read(additional_read))
+                # print("read : ", *response)
 
                 if response[3] == 197:
                     self.lift_position = md400.bytes_to_pos(response)
@@ -53,12 +54,14 @@ class RS485Communication:
     def send_data(self, data):
         try:
             self.ser.write(data)
+            # print("send : ", *data)
         except Exception as e:
             print(f"Error sending data: {e}")
     def run(self):
         while True:
             if self.command_queue:
                 packet = self.command_queue.popleft()
+                print("send : ", *packet)
                 self.send_data(packet)
                 self.read_data()
             else:
@@ -87,8 +90,8 @@ class LiftServiceServer(Node):
             self.rs485_comm.cmd_position = request.value
             self.rs485_comm.command_queue.append(md400.set_pos(request.value))
 
-            while self.rs485_comm.status != Status.Done:
-                pass
+            # while self.rs485_comm.status != Status.Done:
+            #     pass
             response.status = True
             self.rs485_comm.status = Status.Waiting
 
