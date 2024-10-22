@@ -38,6 +38,10 @@ class RS485Communication:
 
                 if response[3] == 197:
                     self.lift_position = md400.bytes_to_pos(response)
+
+                # Test Case : 아두이노 테스트 용도
+                # elif(response[5] == 197):
+                #     self.lift_position = 1.5
                     
                 else:
                     self.lift_position = None
