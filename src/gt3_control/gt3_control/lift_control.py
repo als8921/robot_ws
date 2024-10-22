@@ -96,6 +96,7 @@ class LiftServiceServer(Node):
             self.rs485_comm.status = Status.Waiting
 
         elif request.command == "STOP":
+            self.rs485_comm.command_queue = deque()
             self.rs485_comm.command_queue.append(md400.stop())
             self.get_logger().info('STOP')
             response.status = True
