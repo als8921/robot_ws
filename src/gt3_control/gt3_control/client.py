@@ -61,31 +61,31 @@ class LiftControlUI:
         value = self.get_value()
         if value is not None:
             response = self.client.send_request("MOVE", value)
-            self.show_response(response)
+            # self.show_response(response)
 
     def stop_lift(self):
         response = self.client.send_request("STOP", 0.0)
-        self.show_response(response)
+        # self.show_response(response)
 
     def reset_lift(self):
         response = self.client.send_request("RESET", 0.0)
-        self.show_response(response)
+        # self.show_response(response)
 
     def homing_lift(self):
         response = self.client.send_request("HOMING", 0.0)
-        self.show_response(response)
+        # self.show_response(response)
 
     def set_rpm(self):
         value = self.get_value()
         if value is not None:
             response = self.client.send_request("SETRPM", value)
-            self.show_response(response)
+            # self.show_response(response)
 
     def set_current(self):
         value = self.get_value()
         if value is not None:
             response = self.client.send_request("SETCURRENT", value)
-            self.show_response(response)
+            # self.show_response(response)
 
     def show_response(self, response):
         if response is not None:
