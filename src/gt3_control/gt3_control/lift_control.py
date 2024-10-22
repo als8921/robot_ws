@@ -14,20 +14,13 @@ from lift_srv.srv import LiftCommand
 SERIAL_PORT = '/dev/ttyUSB0'
 BAUDRATE = 19200
 
-class Status(Enum):
-    Progress = "Progress",
-    Done = "Done",
-    Waiting = "Waiting"
-
 class RS485Communication:
-    def __init__(self, publisher):
+    def __init__(self):
         self.ser = serial.rs485.RS485(SERIAL_PORT, baudrate=BAUDRATE, timeout=1)
         self.ser.rs485_mode = serial.rs485.RS485Settings()
         self.command_queue = deque()
         self.lift_position = None
-        self.status = Status.Waiting
-        self.cmd_position = None
-        self.publisher = publisher
+        self.position_publisher = None
 
     def read_data(self):
         if self.ser.readable():
@@ -37,7 +30,6 @@ class RS485Communication:
                 response.extend(self.ser.read(4))
                 additional_read = response[-1] + 1
                 response.extend(self.ser.read(additional_read))
-                # print("read : ", *response)
 
                 if response[3] == 197:
                     self.lift_position = md400.bytes_to_pos(response)
@@ -48,7 +40,7 @@ class RS485Communication:
                     self.lift_position = None
                 
                 if self.lift_position != None:
-                    self.publisher.publish(Float32(data = self.lift_position))
+                    self.position_publisher.publish(Float32(data = self.lift_position))
 
     def send_data(self, data):
         try:
@@ -67,10 +59,6 @@ class RS485Communication:
                 packet = md400.get_pos()
                 self.send_data(packet)
                 self.read_data()
-
-                if self.cmd_position is not None:
-                    if abs(self.cmd_position - self.lift_position) < 0.05:
-                        self.status = Status.Done
                 time.sleep(0.1)
 
     def close(self):
@@ -83,16 +71,12 @@ class LiftServiceServer(Node):
         self.srv = self.create_service(LiftCommand, 'lift_command', self.handle_set_position)
 
     def handle_set_position(self, request, response):
-        print(request.command)
+        print(request.command, request.value)
+        response.status = False
         if request.command == "MOVE":
             self.get_logger().info(f'Setting position to: {request.value}')
-            self.rs485_comm.cmd_position = request.value
             self.rs485_comm.command_queue.append(md400.set_pos(request.value))
-
-            # while self.rs485_comm.status != Status.Done:
-            #     pass
             response.status = True
-            self.rs485_comm.status = Status.Waiting
 
         elif request.command == "STOP":
             self.rs485_comm.command_queue = deque()
@@ -119,33 +103,24 @@ class LiftServiceServer(Node):
             self.rs485_comm.command_queue.append(md400.set_current_limit(request.value))
             self.get_logger().info(f'SET CURRENT to {request.value}[A]')
             response.status = True
-        else:
-            response.status = False
         return response
 
 def main(args=None):
     rclpy.init(args=args)
-
     global md400
     md400 = MD400(rmid=0xb7, tmid=0xb8, id=0x01)
-    rs485_comm = RS485Communication(publisher=None)  # 초기화 시 퍼블리셔는 None으로 설정
 
-    # MultiThreadedExecutor를 생성하고 ROS 서비스 서버 추가
-    executor = MultiThreadedExecutor()
+    rs485_comm = RS485Communication()                   # 패킷을 주고 받는 Serial 통신 Class
+    lift_service_server = LiftServiceServer(rs485_comm) # Ros Service 통신을 위한 Class
 
-    lift_service_server = LiftServiceServer(rs485_comm)
-    executor.add_node(lift_service_server)
+    executor = MultiThreadedExecutor()                  
+    executor.add_node(lift_service_server)              # Service Server Class를 MultiThread로 실행
 
-    # 퍼블리셔 생성
-    lift_position_publisher = lift_service_server.create_publisher(Float32, '/gt3/lift_position', 10)
-    rs485_comm.publisher = lift_position_publisher  # 퍼블리셔 설정
+    rs485_comm.publisher = lift_service_server.create_publisher(Float32, '/gt3/lift_position', 10)
 
     try:
-        # RS485 통신을 위한 스레드 시작
-        threading.Thread(target=rs485_comm.run, daemon=True).start()
-
-        # ROS 노드 실행
-        executor.spin()
+        threading.Thread(target=rs485_comm.run, daemon=True).start()    # RS485 통신을 위한 스레드 시작
+        executor.spin()                                                 # ros2 MultiThread spin
     finally:
         rs485_comm.close()
         rclpy.shutdown()
