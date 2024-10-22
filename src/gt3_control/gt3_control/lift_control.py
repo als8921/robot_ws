@@ -8,9 +8,8 @@ from collections import deque
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
-from rclpy.publisher import Publisher
-from std_msgs.msg import Float32  # Float32 메시지 타입 임포트
-from lift_srv.srv import LiftCommand  # 서비스 타입에 맞게 수정
+from std_msgs.msg import Float32
+from lift_srv.srv import LiftCommand
 
 SERIAL_PORT = '/dev/ttyUSB0'
 BAUDRATE = 19200
@@ -28,7 +27,7 @@ class RS485Communication:
         self.lift_position = None
         self.status = Status.Waiting
         self.cmd_position = None
-        self.publisher = publisher  # 퍼블리셔를 저장
+        self.publisher = publisher
 
     def read_data(self):
         if self.ser.readable():
