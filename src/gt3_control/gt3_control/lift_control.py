@@ -9,7 +9,7 @@ from rclpy.node import Node
 from std_msgs.msg import Float32
 from lift_srv.srv import LiftCommand
 
-SERIAL_PORT = '/dev/ttyACM0'
+SERIAL_PORT = '/dev/ttyUSB0'
 BAUDRATE = 19200
 
 class RS485Communication:
@@ -54,7 +54,7 @@ class RS485Communication:
                 packet = md400.get_pos()
                 self.send_data(packet)
                 self.read_data()
-                time.sleep(0.1)
+                time.sleep(0.05)
 
     def close(self):
         self.ser.close()
@@ -63,9 +63,9 @@ class LiftServiceServer(Node):
     def __init__(self, rs485_comm):
         super().__init__('lift_service_server')
         self.rs485_comm = rs485_comm
-        self.srv = self.create_service(LiftCommand, 'lift_command', self.handle_set_position)
+        self.srv = self.create_service(LiftCommand, 'lift_command', self.service_callback)
 
-    def handle_set_position(self, request, response):
+    def service_callback(self, request, response):
         print(request.command, request.value)
         response.status = False
         if request.command == "MOVE":
