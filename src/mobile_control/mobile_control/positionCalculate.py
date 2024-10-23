@@ -15,8 +15,8 @@ class ControlNode(Node):
         self.publisher = self.create_publisher(CtrlCmd, 'ctrl_cmd', 10)
         
         # 목표 위치 및 자세 설정
-        self.target_position = (1, 1)   # 목표 위치 (X, Y)
-        self.target_yaw = -36            # 목표 자세 (Degree)
+        self.target_position = (0, 0)   # 목표 위치 (X, Y)
+        self.target_yaw = 0             # 목표 자세 (Degree)
 
         # 최대 속도 및 각속도 설정
         self.max_linear_speed = 0.1  # 최대 선속도 (m/s)
