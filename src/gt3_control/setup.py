@@ -21,7 +21,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            "server = gt3_control.server:main",
             "client = gt3_control.client:main",
             "control = gt3_control.lift_control:main",
 
