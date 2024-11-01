@@ -42,8 +42,8 @@ class MotorController(Node):
         
         self.Limit_L, self.Limit_O, self.Limit_R = 0, 0, 0
         # PID 제어 변수
-        self.kp = 0.2
-        self.kd = 0.025
+        self.kp = 0.01
+        self.kd = 0.0
         self.previous_error = 0
         self.desired_angle = 0  # 목표 각도 초기화
         self.error = 0
@@ -67,8 +67,8 @@ class MotorController(Node):
         # 시각화를 위한 퍼블리셔 설정
         # self.raw_velocity_publisher = self.create_publisher(Float32, '/motor/raw_velocity', 10)
         # self.filtered_velocity_publisher = self.create_publisher(Float32, '/motor/filtered_velocity', 10)
-        # self.angle_publisher = self.create_publisher(Float32, '/motor/angle', 10)
-        # self.desired_angle_publisher = self.create_publisher(Float32, '/motor/desired_angle', 10)
+        self.angle_publisher = self.create_publisher(Float32, '/motor/angle', 10)
+        self.desired_angle_publisher = self.create_publisher(Float32, '/motor/desired_angle', 10)
         # self.current_publisher = self.create_publisher(Float32, 'motor/current', 10)
         
         self.previous_time = time.time()
@@ -185,7 +185,8 @@ class MotorController(Node):
             voltage (float): 설정할 전압 (단위: V)
         """
         ao_channel = 0
-        voltage = max(-10, min(10, voltage))  # 전압 제한
+        max_voltage = 10
+        voltage = max(-max_voltage, min(max_voltage, voltage))  # 전압 제한
         self.instant_ao.writeAny(ao_channel, 1, None, [-voltage])
 
     def calculate_velocity(self, voltage):
@@ -238,6 +239,8 @@ class MotorController(Node):
 
         
         if(self.State == STATE.LIMIT):
+            self.write_digital(1)   # 디지털 HIGH 신호를 보내면 모터 비상 정지
+            self.write_analog(0)
             raise Exception("LIMIT SENSOR DETECTED")
 
 
@@ -280,7 +283,7 @@ class MotorController(Node):
         """
 
         if(self.State == STATE.STEADYSTATE):
-            if(abs(self.error) > 0.1):
+            if(abs(self.error) > 0.01):
                 self.current_position -= self.error
                 self.current_angle = self.position_to_angle(self.current_position)
                 print(f"error : {self.error}  영점 보정")
@@ -309,8 +312,8 @@ class MotorController(Node):
         # 퍼블리시
         # self.raw_velocity_publisher.publish(Float32(data=raw_velocity))
         # self.filtered_velocity_publisher.publish(Float32(data=float(self.filtered_velocity)))
-        # self.angle_publisher.publish(Float32(data=float(self.current_angle)))
-        # self.desired_angle_publisher.publish(Float32(data=float(self.desired_angle)))
+        self.angle_publisher.publish(Float32(data=float(self.current_angle)))
+        self.desired_angle_publisher.publish(Float32(data=float(self.desired_angle)))
         # self.current_publisher.publish(Float32(data=float(current)))
 
 def main(args=None):

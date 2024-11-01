@@ -4,7 +4,8 @@ import serial.rs485
 from MD400 import MD400
 from collections import deque
 
-SERIAL_PORT = '/dev/ttyACM0'
+# SERIAL_PORT = '/dev/ttyACM0'
+SERIAL_PORT = '/dev/ttyUSB0'
 BAUDRATE = 19200
 
 class RS485Communication:
@@ -51,13 +52,15 @@ if __name__ == '__main__':
     md400 = MD400(rmid = 0xb7, tmid = 0xb8, id = 0x01)
 
     command = [
-        md400.set_alarm_reset(),
-        md400.get_pos(),
-        md400.set_pos(0),
-        md400.stop(),
-        md400.homing(),
-        md400.set_rpm(2000),
-        md400.set_current_limit(10)
+        # md400.set_alarm_reset(),
+        # md400.set_direction_ccw(),
+        # md400.set_direction_cw(),
+        # md400.get_pos(),
+        # md400.set_pos(0),
+        # md400.stop(),
+        # md400.homing(),
+        # md400.set_rpm(2000),
+        # md400.set_current_limit(10)
     ]
 
     comm.command_queue.extend(command)
