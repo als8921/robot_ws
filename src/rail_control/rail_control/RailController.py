@@ -16,13 +16,14 @@ ARDUINO_BAUDRATE = 9600
 DEVICE_DESCRIPTION = "USB-4716,BID#0"
 TIMER_PERIOD = 0.01
 POSITION_FILE = os.path.dirname(__file__)+"/current_position.txt"
-
+MAX_CURRENT = 4.5 #[A]
 class STATE(Enum):
     CALIBRATION = "CALIBRATION"
     PROCESS = "PROCESS"
     STEADYSTATE = "STEADYSTATE"
     EMERGENCY = "EMERGENCY"
     LIMIT = "LIMIT"
+    CURRENT_LIMIT = "CURRENT_LIMIT"
 
 class MotorController(Node):
     def __init__(self):
@@ -42,7 +43,7 @@ class MotorController(Node):
         
         self.Limit_L, self.Limit_O, self.Limit_R = 0, 0, 0
         # PID 제어 변수
-        self.kp = 0.01
+        self.kp = 0.1
         self.kd = 0.0
         self.previous_error = 0
         self.desired_angle = 0  # 목표 각도 초기화
@@ -69,7 +70,7 @@ class MotorController(Node):
         # self.filtered_velocity_publisher = self.create_publisher(Float32, '/motor/filtered_velocity', 10)
         self.angle_publisher = self.create_publisher(Float32, '/motor/angle', 10)
         self.desired_angle_publisher = self.create_publisher(Float32, '/motor/desired_angle', 10)
-        # self.current_publisher = self.create_publisher(Float32, 'motor/current', 10)
+        self.current_publisher = self.create_publisher(Float32, 'motor/current', 10)
         
         self.previous_time = time.time()
         # ROS 타이머 설정
@@ -238,15 +239,16 @@ class MotorController(Node):
             self.State = STATE.STEADYSTATE
 
         
-        if(self.State == STATE.LIMIT):
-            self.write_digital(1)   # 디지털 HIGH 신호를 보내면 모터 비상 정지
-            self.write_analog(0)
-            raise Exception("LIMIT SENSOR DETECTED")
 
 
 
         analog_input = self.read_analog()
         current = analog_input[1] * 5.9 / 4 # Analog to Current     -4V ~ 4V    :   -5.9A ~ 5.9A
+
+        if(abs(current) > MAX_CURRENT):
+            print(abs(current))
+            self.State = STATE.CURRENT_LIMIT
+
         # Velocity를 받아와서 적분을 통해 angle을 구하는 과정
         raw_velocity = self.calculate_velocity(analog_input[0]) - self.offset
         # Low Pass Filter
@@ -282,13 +284,26 @@ class MotorController(Node):
             EMERGENCY   : /rcs/rail_emg 토픽이 True로 들어온 상태로 정지
         """
 
-        if(self.State == STATE.STEADYSTATE):
+
+        if(self.State == STATE.LIMIT):
+            self.write_digital(1)   # 디지털 HIGH 신호를 보내면 모터 비상 정지
+            self.write_analog(0)
+            print("LIMIT SENSOR DETECTED")
+            # raise Exception("LIMIT SENSOR DETECTED")
+
+        elif(self.State == STATE.CURRENT_LIMIT):
+            self.get_logger().info(f"[CURRENT_LIMIT] - CURRENT: {current}[A]")
+            self.write_digital(1)   # 디지털 HIGH 신호를 보내면 모터 비상 정지
+            self.write_analog(0)
+
+        elif(self.State == STATE.STEADYSTATE):
             if(abs(self.error) > 0.01):
                 self.current_position -= self.error
                 self.current_angle = self.position_to_angle(self.current_position)
                 print(f"error : {self.error}  영점 보정")
                 self.error = 0
-            self.get_logger().info(f"[STEADYSTATE] - Pos: {self.current_position:.2f}")
+            # self.get_logger().info(f"[STEADYSTATE] - Pos: {self.current_position:.2f}")
+            self.write_digital(0)
             self.write_analog(0)
             
             if(self.publisher_count > 10):
@@ -314,7 +329,7 @@ class MotorController(Node):
         # self.filtered_velocity_publisher.publish(Float32(data=float(self.filtered_velocity)))
         self.angle_publisher.publish(Float32(data=float(self.current_angle)))
         self.desired_angle_publisher.publish(Float32(data=float(self.desired_angle)))
-        # self.current_publisher.publish(Float32(data=float(current)))
+        self.current_publisher.publish(Float32(data=float(current)))
 
 def main(args=None):
     """ ROS 2 노드를 초기화하고 실행하는 메인 함수 """
@@ -329,6 +344,7 @@ def main(args=None):
     finally:
         controller.write_digital(1) 
         controller.write_analog(0)
+        time.sleep(0.1)
         controller.destroy_node()
         rclpy.shutdown()
 
