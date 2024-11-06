@@ -4,7 +4,7 @@ import time
 import rclpy
 from enum import Enum
 from rclpy.node import Node
-from std_msgs.msg import Int16, Float32, Bool, String, Int16MultiArray
+from std_msgs.msg import Float32, Bool, String, Int16MultiArray
 from Automation.BDaq import *
 from Automation.BDaq.InstantAoCtrl import InstantAoCtrl
 from Automation.BDaq.InstantAiCtrl import InstantAiCtrl
