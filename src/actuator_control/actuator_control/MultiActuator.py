@@ -12,7 +12,8 @@ import asyncio
 SERIAL_PORT = '/dev/ttyUSB0'    # 시리얼 포트
 BAUD_RATE = 57600               # 전송 속도
 ACTUATOR_IDS = [3, 0]           # 액츄에이터 ID 목록
-OPEN_POSITIONS = [3500, 4000]   # 개방 위치
+OPEN_POSITIONS = [3500, 0]   # 개방 위치
+CLOSED_POSITIONS = [0, 4100]   # 개방 위치
 ERROR_BOUNDARY = 10             # 위치 오차 허용 범위
 
 class CommandSubscriber(Node):
@@ -56,7 +57,10 @@ class CommandSubscriber(Node):
                     True    :   target_position = OPEN_POSITION
                     False   :   target_position = 0
         """
-        return [pos * int(flag) for pos in OPEN_POSITIONS]
+        if(flag):
+            return OPEN_POSITIONS
+        else:
+            return CLOSED_POSITIONS
 
     async def move_actuators(self, target_positions):
         """

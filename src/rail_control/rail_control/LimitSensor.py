@@ -21,7 +21,7 @@ class ArduinoReader(Node):
         try:
             if self.ser.readable():
                 data = self.ser.readline().decode('utf-8').rstrip()  # 데이터 읽기
-                print(data)
+                # print(data)
                 stateL, stateO, stateR = map(int, data.split(','))
 
                 # ROS2 메시지 생성 및 퍼블리시
