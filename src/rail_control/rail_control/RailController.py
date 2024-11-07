@@ -17,6 +17,7 @@ DEVICE_DESCRIPTION = "USB-4716,BID#0"
 TIMER_PERIOD = 0.01
 POSITION_FILE = os.path.dirname(__file__)+"/current_position.txt"
 MAX_CURRENT = 4.5 #[A]
+
 class STATE(Enum):
     CALIBRATION = "CALIBRATION"
     PROCESS = "PROCESS"
@@ -24,6 +25,7 @@ class STATE(Enum):
     EMERGENCY = "EMERGENCY"
     LIMIT = "LIMIT"
     CURRENT_LIMIT = "CURRENT_LIMIT"
+    HOMING = "HOMING"
 
 class MotorController(Node):
     def __init__(self):
@@ -51,12 +53,16 @@ class MotorController(Node):
 
         self.State = STATE.CALIBRATION
 
+        ### HOMING Variable
+        self.homing_direction = 1   # -1 or 1 
+        self.homing_speed = 1.0     #[V] Voltage 출력
+
 
 
         # ROS 토픽 구독 및 퍼블리셔 설정
         self.pos_subscription = self.create_subscription(String, '/rcs/rail_refpos', self.pos_callback, 10)
         self.emg_subscription = self.create_subscription(Bool, '/rcs/rail_emg', self.emg_callback, 10)
-        self.cali_subscription = self.create_subscription(Bool, '/rcs/rail_calib', self.cali_callback, 10)
+        self.homing_subscription = self.create_subscription(Bool, '/rcs/rail_homing', self.homing_callback, 10)
         self.limit_subscription = self.create_subscription(Int16MultiArray, '/rcs/limit_sensor', self.limit_callback, 10)
 
 
@@ -99,7 +105,6 @@ class MotorController(Node):
         with open(POSITION_FILE, 'w') as f:
             f.write(str(position))
 
-
     def calibration(self, calibration_time):
         """ 에러의 Offset을 얻기 위한 Calibration 함수
         Args:
@@ -130,14 +135,16 @@ class MotorController(Node):
             print("CENTER DETECTED")
 
         if(self.Limit_L == 1 or self.Limit_R == 1):
-            self.State = STATE.LIMIT
+            if(self.State != STATE.HOMING):
+                self.State = STATE.LIMIT
 
-    def cali_callback(self, msg):
+    def homing_callback(self, msg):
         """ 보정 명령 수신 콜백 함수
         Args:
             msg (Bool): 보정 명령 여부
         """
-        print(msg.data, "Calibration Subscribed")
+        if msg.data:
+            self.State = STATE.HOMING
 
     def emg_callback(self, msg):
         """ 비상 정지 명령 수신 콜백 함수
@@ -238,8 +245,20 @@ class MotorController(Node):
             self.offset = self.calibration(5)
             self.State = STATE.STEADYSTATE
 
-        
+        if(self.State == STATE.HOMING):
+            if(self.Limit_L == 1):
+                self.homing_direction = 1
+            elif(self.Limit_R == 1):
+                self.homing_direction = -1
+            elif(self.Limit_O == 1):
+                #   1. 정지
+                #   2. 원점에서 부터 이동한 거리 계산
+                #   3. 원점에서 부터 이동한 거리 만큼 돌아가기
+                self.write_analog(0)
+                time.sleep(0.2)
+                self.State = STATE.STEADYSTATE
 
+            self.write_analog(self.homing_speed * self.homing_direction)
 
 
         analog_input = self.read_analog()
@@ -278,10 +297,12 @@ class MotorController(Node):
         """
             STATE에 따른 작업
             ---
-            PROCESS     : 안정상태로 PID제어 수행
-            LIMIT       : 리밋센서에 인식된 상태로 프로세스 종료
-            STEADYSTATE : 정상상태로 다음 명령이 들어올 때까지 모터를 정지
-            EMERGENCY   : /rcs/rail_emg 토픽이 True로 들어온 상태로 정지
+            LIMIT           : 리밋센서에 인식된 상태로 프로세스 종료
+            CURRENT_LIMIT   : 최대 부하 전류를 넘은 상태로 모터를 비상 정지 (충돌 감지)
+
+            STEADYSTATE     : 정상상태로 다음 명령이 들어올 때까지 모터를 정지
+            PROCESS         : 안정상태로 PID제어 수행
+            EMERGENCY       : /rcs/rail_emg 토픽이 True로 들어온 상태로 정지
         """
 
 
