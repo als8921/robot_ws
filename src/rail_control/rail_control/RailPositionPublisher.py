@@ -8,7 +8,7 @@ class Int16Publisher(Node):
         super().__init__('int16_publisher_node')
         self.pos_publisher = self.create_publisher(String, '/rcs/rail_refpos', 10)
         self.emg_publisher = self.create_publisher(Bool, '/rcs/rail_emg', 10)
-        self.cali_publisher = self.create_publisher(Bool, '/rcs/rail_calib',10)
+        self.cali_publisher = self.create_publisher(Bool, '/rcs/rail_homing',10)
 
 
         self.root = tk.Tk()
