@@ -74,6 +74,8 @@ class MotorController(Node):
         self.publisher_count = 0
         self.position_publisher = self.create_publisher(String, '/rcs/rail_actpos', 10)
         self.status_publisher = self.create_publisher(Bool, '/rcs/status', 10)
+
+        
         # 시각화를 위한 퍼블리셔 설정
         # self.raw_velocity_publisher = self.create_publisher(Float32, '/motor/raw_velocity', 10)
         # self.filtered_velocity_publisher = self.create_publisher(Float32, '/motor/filtered_velocity', 10)
@@ -168,7 +170,7 @@ class MotorController(Node):
             if(self.State == STATE.STEADYSTATE):
                 self.State = STATE.PROCESS
                 desired_position = float(msg.data) 
-                
+
                 if(desired_position > MAX_POSITION):
                     desired_position = MAX_POSITION
                 elif(desired_position < MIN_POSITION):
@@ -267,7 +269,7 @@ class MotorController(Node):
                 self.write_analog(0)
                 time.sleep(0.2)
                 self.State = STATE.STEADYSTATE
-
+            print("Homing", self.homing_direction)
             self.write_analog(self.homing_speed * self.homing_direction)
 
 
