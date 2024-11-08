@@ -18,6 +18,9 @@ TIMER_PERIOD = 0.01
 POSITION_FILE = os.path.dirname(__file__)+"/current_position.txt"
 MAX_CURRENT = 4.5 #[A]
 
+MIN_POSITION = -0.65    # [m]
+MAX_POSITION = 0.65     # [m]
+
 class STATE(Enum):
     CALIBRATION = "CALIBRATION"
     PROCESS = "PROCESS"
@@ -164,7 +167,14 @@ class MotorController(Node):
         try:
             if(self.State == STATE.STEADYSTATE):
                 self.State = STATE.PROCESS
-                self.desired_position = float(msg.data)                             # unit : [m]
+                desired_position = float(msg.data) 
+                
+                if(desired_position > MAX_POSITION):
+                    desired_position = MAX_POSITION
+                elif(desired_position < MIN_POSITION):
+                    desired_position = MIN_POSITION
+
+                self.desired_position = desired_position                            # unit : [m]
                 self.desired_angle = self.position_to_angle(self.desired_position)  # unit : [degree]
         except:
             pass
